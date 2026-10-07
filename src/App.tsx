@@ -14,7 +14,11 @@ import {
   Filter,
   Check,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Layers,
+  ArrowUpRight,
+  ExternalLink,
+  Laptop
 } from 'lucide-react';
 
 const API_GATEWAY = "https://tasks.seosiri.com";
@@ -84,7 +88,6 @@ export default function App() {
   const fetchTasksAndTelemetry = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Tasks (with optional dept filter)
       const deptQuery = selectedDept !== 'ALL' ? `?dept=${selectedDept}` : '';
       const res = await fetch(`${API_GATEWAY}/v1/tasks${deptQuery}`, {
         headers: { "X-Employee-ID": employeeId }
@@ -95,7 +98,6 @@ export default function App() {
         setIsAdmin(data.role === 'ADMIN');
       }
 
-      // 2. Fetch Notifications / Pings
       const pingRes = await fetch(`${API_GATEWAY}/v1/notifications/ping`, {
         headers: { "X-Employee-ID": employeeId }
       });
@@ -104,7 +106,6 @@ export default function App() {
         setUnreadPings(pingData.notifications);
       }
 
-      // 3. Fetch Tenant Stats (Seats & Tier)
       const statsRes = await fetch(`${API_GATEWAY}/v1/tenants/stats`, {
         headers: { "X-Employee-ID": employeeId }
       });
@@ -113,7 +114,6 @@ export default function App() {
         setTenantStats(statsData);
       }
 
-      // 4. Fetch Digest (Admin only)
       if (data.role === 'ADMIN' || data.role === 'DEPT_HEAD') {
         const digRes = await fetch(`${API_GATEWAY}/v1/analytics/digest`, {
           headers: { "X-Employee-ID": employeeId }
@@ -148,7 +148,7 @@ export default function App() {
       });
       const json = await res.json();
       if (json.status === "TRANSITION_LOGGED") {
-        setStatusMessage(`Task transitioned to ${newStatus}`);
+        setStatusMessage(`Task updated: ${newStatus}`);
         setTimeout(() => setStatusMessage(''), 3000);
         fetchTasksAndTelemetry();
       }
@@ -188,7 +188,7 @@ export default function App() {
       });
       const json = await res.json();
       if (json.status === "LICENSE_ACTIVATED") {
-        setLicenseStatusMsg(`Tier upgraded to ${json.tier} (${json.max_seats} Seats)!`);
+        setLicenseStatusMsg(`Tier upgraded: ${json.tier} (${json.max_seats} Seats)!`);
         setTimeout(() => {
           setShowLicenseModal(false);
           setLicenseStatusMsg('');
@@ -198,7 +198,7 @@ export default function App() {
         setLicenseStatusMsg(json.message || "Activation Failed.");
       }
     } catch (err) {
-      setLicenseStatusMsg("Error connecting to edge gateway.");
+      setLicenseStatusMsg("Connection Error.");
     }
   };
 
@@ -239,7 +239,7 @@ export default function App() {
     const parsedTasks = lines.slice(1).map(line => {
       const [title, assignedTo, deptId, priority, isUrgent] = line.split(',').map(s => s?.trim());
       return {
-        title: title || "Untitled Bulk Task",
+        title: title || "Untitled Task",
         assignedTo: assignedTo || employeeId,
         deptId: deptId || "AG",
         priority: (priority as any) || "MEDIUM",
@@ -273,36 +273,60 @@ export default function App() {
   const completeTasks = tasks.filter(t => t.status === 'COMPLETE');
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
+    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans selection:bg-blue-600 selection:text-white">
       
-      {/* Control Header */}
-      <header className="border-b border-slate-800 bg-slate-900/95 backdrop-blur-md px-6 py-4 sticky top-0 z-40 shadow-xl">
-        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-4">
+      {/* 1. Global Header with Vector Logo */}
+      <header className="border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md px-4 sm:px-6 lg:px-8 py-3.5 sticky top-0 z-40 shadow-2xl">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-emerald-500 p-0.5 flex items-center justify-center font-bold text-white shadow-lg">
-              S
+          {/* Brand Identity */}
+          <div className="flex items-center space-x-3 w-full md:w-auto justify-between md:justify-start">
+            <div className="flex items-center space-x-3">
+              {/* Crisp Vector SEOSiri Brand Logo */}
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-emerald-500 p-1 flex items-center justify-center shrink-0 shadow-lg border border-blue-400/30">
+                <svg className="w-full h-full text-white" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="512" height="512" rx="128" fill="#0f172a" />
+                  <circle cx="256" cy="256" r="190" fill="none" stroke="#0284c7" strokeWidth="28" strokeDasharray="800" strokeDashoffset="100" />
+                  <circle cx="256" cy="256" r="130" fill="none" stroke="#38bdf8" strokeWidth="20" />
+                  <path d="M 256 120 L 256 256 L 350 256" fill="none" stroke="#34d399" strokeWidth="28" strokeLinecap="round" strokeLinejoin="round" />
+                  <circle cx="256" cy="256" r="32" fill="#38bdf8" />
+                </svg>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-sm sm:text-base font-extrabold text-white tracking-tight">
+                    SEOSiri Task Sentinel
+                  </h1>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold uppercase">
+                    Enterprise
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 font-mono tracking-tight">
+                  Autonomous Workforce Velocity &amp; Task Orchestration
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-                <span>SEOSiri Task Sentinel</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                  Global Enterprise Board
-                </span>
-              </h1>
-              <span className="text-xs text-slate-400 font-mono">Gateway: tasks.seosiri.com</span>
-            </div>
+
+            {/* Mobile Refresh Button */}
+            <button
+              onClick={fetchTasksAndTelemetry}
+              disabled={loading}
+              className="md:hidden p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-400' : ''}`} />
+            </button>
           </div>
 
-          {/* Seat Status & Control Badges */}
-          <div className="flex flex-wrap items-center gap-2.5 text-xs font-mono">
+          {/* Controls: Seats, Dept Filter, Identity Switcher */}
+          <div className="flex flex-wrap items-center justify-end gap-2.5 w-full md:w-auto text-xs font-mono">
             {tenantStats && (
-              <div className="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+              <div className="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800/90 shadow-sm">
                 <span className="text-slate-400">Seats:</span>
-                <strong className={tenantStats.active_seats >= tenantStats.max_seats ? "text-rose-400" : "text-emerald-400"}>
+                <strong className={tenantStats.active_seats >= tenantStats.max_seats ? "text-rose-400 font-bold" : "text-emerald-400 font-bold"}>
                   {tenantStats.active_seats} / {tenantStats.max_seats}
                 </strong>
-                <span className="text-[10px] text-slate-500">({tenantStats.tier})</span>
+                <span className="text-[10px] text-slate-500 uppercase">({tenantStats.tier})</span>
                 {tenantStats.is_free_tier && (
                   <button 
                     onClick={() => setShowLicenseModal(true)}
@@ -316,12 +340,12 @@ export default function App() {
 
             {/* Department Filter (Admin View) */}
             {isAdmin && (
-              <div className="flex items-center space-x-1.5 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
-                <Filter className="w-3.5 h-3.5 text-slate-500" />
+              <div className="flex items-center space-x-1.5 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800/90 shadow-sm">
+                <Filter className="w-3.5 h-3.5 text-slate-400" />
                 <select 
                   value={selectedDept}
                   onChange={(e) => setSelectedDept(e.target.value)}
-                  className="bg-transparent text-slate-200 font-bold focus:outline-none cursor-pointer"
+                  className="bg-transparent text-slate-200 font-semibold focus:outline-none cursor-pointer"
                 >
                   <option value="ALL">All Departments</option>
                   <option value="AG">AG (Core Architecture)</option>
@@ -333,7 +357,7 @@ export default function App() {
             )}
 
             {/* Identity Switcher */}
-            <div className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 flex items-center space-x-2">
+            <div className="bg-slate-950 border border-slate-800/90 rounded-xl px-3 py-1.5 flex items-center space-x-2 shadow-sm">
               <Shield className="w-3.5 h-3.5 text-blue-400" />
               <select 
                 value={employeeId} 
@@ -341,14 +365,14 @@ export default function App() {
                 className="bg-transparent text-emerald-400 font-bold focus:outline-none cursor-pointer"
               >
                 <option value="ETMAGJUMR62">ETMAGJUMR62 (Admin Global View)</option>
-                <option value="ETM-AG-EMP-R62">ETM-AG-EMP-R62 (Employee Isolated View)</option>
+                <option value="ETM-AG-EMP-R62">ETM-AG-EMP-R62 (Employee View)</option>
               </select>
             </div>
 
             <button
               onClick={fetchTasksAndTelemetry}
               disabled={loading}
-              className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all"
+              className="hidden md:flex p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all shadow-sm"
               title="Refresh Telemetry"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-blue-400' : ''}`} />
@@ -358,68 +382,68 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Board Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+      {/* Main Workspace */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         
-        {/* Executive Digest */}
+        {/* Executive Department Velocity Digest */}
         {digest && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <span className="text-xs font-mono font-bold text-slate-400 uppercase flex items-center gap-1.5">
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+              <span className="text-xs font-mono font-bold text-slate-300 uppercase flex items-center gap-1.5">
                 <TrendingUp className="w-4 h-4 text-emerald-400" />
                 <span>Executive Department Velocity Digest</span>
               </span>
-              <span className="text-xs font-mono text-emerald-400 font-bold">
+              <span className="text-xs font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                 Velocity: {digest.completion_velocity}
               </span>
             </div>
             
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 font-mono text-center">
-              <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                <span className="text-[10px] text-slate-500 block">TOTAL TASKS</span>
-                <strong className="text-lg text-white font-bold">{digest.total_tasks}</strong>
+              <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/80">
+                <span className="text-[10px] text-slate-400 uppercase block font-semibold">TOTAL TASKS</span>
+                <strong className="text-xl text-white font-bold">{digest.total_tasks}</strong>
               </div>
-              <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                <span className="text-[10px] text-emerald-500 block">FINISHED TASK</span>
-                <strong className="text-lg text-emerald-400 font-bold">{digest.completed}</strong>
+              <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/80">
+                <span className="text-[10px] text-emerald-400 uppercase block font-semibold">FINISHED TASK</span>
+                <strong className="text-xl text-emerald-400 font-bold">{digest.completed}</strong>
               </div>
-              <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                <span className="text-[10px] text-blue-500 block">IN PROGRESS</span>
-                <strong className="text-lg text-blue-400 font-bold">{digest.in_progress}</strong>
+              <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/80">
+                <span className="text-[10px] text-blue-400 uppercase block font-semibold">IN PROGRESS</span>
+                <strong className="text-xl text-blue-400 font-bold">{digest.in_progress}</strong>
               </div>
-              <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                <span className="text-[10px] text-amber-500 block">URGENT QUEUE</span>
-                <strong className="text-lg text-amber-400 font-bold">{digest.urgent_queue}</strong>
+              <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/80">
+                <span className="text-[10px] text-amber-400 uppercase block font-semibold">URGENT QUEUE</span>
+                <strong className="text-xl text-amber-400 font-bold">{digest.urgent_queue}</strong>
               </div>
-              <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                <span className="text-[10px] text-rose-500 block">FLAGGED BLOCKERS</span>
-                <strong className="text-lg text-rose-400 font-bold">{digest.blockers_reported}</strong>
+              <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/80">
+                <span className="text-[10px] text-rose-400 uppercase block font-semibold">FLAGGED BLOCKERS</span>
+                <strong className="text-xl text-rose-400 font-bold">{digest.blockers_reported}</strong>
               </div>
             </div>
           </div>
         )}
 
-        {/* Interactive Ping Notice Alert Bar */}
+        {/* Real-Time Notification Ping Notice Banner */}
         {unreadPings.length > 0 && (
           <div 
             onClick={() => setShowPingsModal(true)}
-            className="bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/30 rounded-xl p-3.5 flex items-center justify-between font-mono text-xs text-amber-300 cursor-pointer transition-all shadow-lg"
+            className="bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/30 rounded-2xl p-3.5 flex items-center justify-between font-mono text-xs text-amber-300 cursor-pointer transition-all shadow-lg"
           >
             <div className="flex items-center space-x-2.5">
-              <Bell className="w-4 h-4 text-amber-400 animate-bounce" />
+              <Bell className="w-4 h-4 text-amber-400 animate-bounce shrink-0" />
               <span><strong>Ping Notice Active:</strong> You have {unreadPings.length} unread priority notice(s). Click to review &amp; dismiss.</span>
             </div>
-            <span className="text-[10px] uppercase font-bold bg-amber-500/20 px-2 py-1 rounded text-amber-300 flex items-center gap-1">
+            <span className="text-[10px] uppercase font-bold bg-amber-500/20 px-2.5 py-1 rounded-lg text-amber-300 flex items-center gap-1 shrink-0">
               <span>Open Ping Drawer</span>
               <ChevronRight className="w-3 h-3" />
             </span>
           </div>
         )}
 
-        {/* Action Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        {/* Action Header & Stream Title */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-1">
           <div>
-            <h2 className="text-xl font-bold text-white tracking-tight">
+            <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
               {isAdmin ? "Enterprise Task Stream (Global View)" : "Individual Assigned Workflow"}
             </h2>
             <p className="text-xs text-slate-400 font-mono">
@@ -428,10 +452,10 @@ export default function App() {
           </div>
 
           {isAdmin && (
-            <div className="flex items-center space-x-2 font-mono text-xs">
+            <div className="flex items-center space-x-2.5 font-mono text-xs w-full sm:w-auto">
               <button
                 onClick={() => setShowAssignModal(true)}
-                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5"
+                className="flex-1 sm:flex-none px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
               >
                 <Plus className="w-4 h-4" />
                 <span>Assign Task</span>
@@ -439,7 +463,7 @@ export default function App() {
               
               <button
                 onClick={() => setShowCsvModal(true)}
-                className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl transition-all flex items-center gap-1.5"
+                className="flex-1 sm:flex-none px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm"
               >
                 <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
                 <span>Bulk CSV Import</span>
@@ -449,151 +473,154 @@ export default function App() {
         </div>
 
         {/* 4-COLUMN KANBAN PIPELINE */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
           
-          {/* 1. URGENT ASSIGNING */}
-          <div className="bg-slate-900/60 border border-rose-500/30 rounded-2xl p-4 flex flex-col h-[calc(100vh-330px)] min-h-[480px]">
+          {/* COLUMN 1: URGENT ASSIGNING */}
+          <div className="bg-slate-900/60 border border-rose-500/30 rounded-2xl p-4 space-y-3 shadow-lg">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="font-mono text-xs font-bold text-rose-400 flex items-center gap-1.5 uppercase">
                 <Flame className="w-3.5 h-3.5 text-rose-500" />
                 Urgent Assigning
               </span>
-              <span className="text-xs font-mono bg-rose-500/10 text-rose-300 px-2 py-0.5 rounded-full font-bold">
+              <span className="text-xs font-mono bg-rose-500/10 text-rose-300 px-2.5 py-0.5 rounded-full font-bold border border-rose-500/20">
                 {urgentTasks.length}
               </span>
             </div>
             
-            <div className="space-y-2.5 flex-1 overflow-y-auto pr-1 kanban-scroll">
+            <div className="space-y-2.5">
               {urgentTasks.map(task => (
-                <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-rose-500/20 space-y-2">
+                <div key={task.task_id} className="bg-slate-950 p-4 rounded-xl border border-rose-500/20 space-y-2 hover:border-rose-500/40 transition-all shadow-md">
                   <div className="flex items-center justify-between text-[10px] font-mono">
-                    <span className="text-slate-400">{task.dept_id}</span>
+                    <span className="text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
                     <span className="text-rose-400 font-bold uppercase">{task.priority}</span>
                   </div>
                   <h4 className="text-xs font-bold text-white leading-snug">{task.title}</h4>
-                  <div className="text-[10px] font-mono text-slate-500 truncate">To: {task.assigned_to}</div>
+                  <div className="text-[10px] font-mono text-slate-400 truncate">Assignee: {task.assigned_to}</div>
                   <div className="pt-2 flex items-center justify-between border-t border-slate-900">
                     <button 
                       onClick={() => handleStatusChange(task.task_id, 'PROGRESS')}
-                      className="text-[11px] font-mono text-blue-400 hover:underline font-bold"
+                      className="text-[11px] font-mono text-blue-400 hover:text-blue-300 font-bold inline-flex items-center gap-1"
                     >
-                      Start Task &rarr;
+                      <span>Start Task</span>
+                      <span>&rarr;</span>
                     </button>
                   </div>
                 </div>
               ))}
-              {urgentTasks.length === 0 && <p className="text-xs text-slate-500 italic py-4 text-center">No urgent tasks queued.</p>}
+              {urgentTasks.length === 0 && <p className="text-xs text-slate-500 italic py-6 text-center">No urgent tasks queued.</p>}
             </div>
           </div>
 
-          {/* 2. TASK PROGRESS */}
-          <div className="bg-slate-900/60 border border-blue-500/30 rounded-2xl p-4 flex flex-col h-[calc(100vh-330px)] min-h-[480px]">
+          {/* COLUMN 2: TASK PROGRESS */}
+          <div className="bg-slate-900/60 border border-blue-500/30 rounded-2xl p-4 space-y-3 shadow-lg">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="font-mono text-xs font-bold text-blue-400 flex items-center gap-1.5 uppercase">
                 <Clock className="w-3.5 h-3.5 text-blue-500" />
                 Task Progress
               </span>
-              <span className="text-xs font-mono bg-blue-500/10 text-blue-300 px-2 py-0.5 rounded-full font-bold">
+              <span className="text-xs font-mono bg-blue-500/10 text-blue-300 px-2.5 py-0.5 rounded-full font-bold border border-blue-500/20">
                 {progressTasks.length}
               </span>
             </div>
 
-            <div className="space-y-2.5 flex-1 overflow-y-auto pr-1 kanban-scroll">
+            <div className="space-y-2.5">
               {progressTasks.map(task => (
-                <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-blue-500/20 space-y-2">
+                <div key={task.task_id} className="bg-slate-950 p-4 rounded-xl border border-blue-500/20 space-y-2 hover:border-blue-500/40 transition-all shadow-md">
                   <div className="flex items-center justify-between text-[10px] font-mono">
-                    <span className="text-slate-400">{task.dept_id}</span>
+                    <span className="text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
                     <span className="text-blue-400 font-bold">{task.priority}</span>
                   </div>
                   <h4 className="text-xs font-bold text-white leading-snug">{task.title}</h4>
-                  <div className="text-[10px] font-mono text-slate-500 truncate">To: {task.assigned_to}</div>
+                  <div className="text-[10px] font-mono text-slate-400 truncate">Assignee: {task.assigned_to}</div>
                   <div className="pt-2 flex items-center justify-between border-t border-slate-900">
                     <button 
                       onClick={() => setShowBlockerModal(task.task_id)}
-                      className="text-[11px] font-mono text-amber-400 hover:underline"
+                      className="text-[11px] font-mono text-amber-400 hover:text-amber-300"
                     >
                       Flag Blocker
                     </button>
                     <button 
                       onClick={() => handleStatusChange(task.task_id, 'COMPLETE')}
-                      className="text-[11px] font-mono text-emerald-400 hover:underline font-bold"
+                      className="text-[11px] font-mono text-emerald-400 hover:text-emerald-300 font-bold inline-flex items-center gap-1"
                     >
-                      Finish &check;
+                      <span>Finish</span>
+                      <span>✓</span>
                     </button>
                   </div>
                 </div>
               ))}
-              {progressTasks.length === 0 && <p className="text-xs text-slate-500 italic py-4 text-center">No tasks in flight.</p>}
+              {progressTasks.length === 0 && <p className="text-xs text-slate-500 italic py-6 text-center">No tasks in flight.</p>}
             </div>
           </div>
 
-          {/* 3. PENDING */}
-          <div className="bg-slate-900/60 border border-amber-500/30 rounded-2xl p-4 flex flex-col h-[calc(100vh-330px)] min-h-[480px]">
+          {/* COLUMN 3: PENDING REVIEW */}
+          <div className="bg-slate-900/60 border border-amber-500/30 rounded-2xl p-4 space-y-3 shadow-lg">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="font-mono text-xs font-bold text-amber-400 flex items-center gap-1.5 uppercase">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
                 Pending Review
               </span>
-              <span className="text-xs font-mono bg-amber-500/10 text-amber-300 px-2 py-0.5 rounded-full font-bold">
+              <span className="text-xs font-mono bg-amber-500/10 text-amber-300 px-2.5 py-0.5 rounded-full font-bold border border-amber-500/20">
                 {pendingTasks.length}
               </span>
             </div>
 
-            <div className="space-y-2.5 flex-1 overflow-y-auto pr-1 kanban-scroll">
+            <div className="space-y-2.5">
               {pendingTasks.map(task => (
-                <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-amber-500/20 space-y-2">
+                <div key={task.task_id} className="bg-slate-950 p-4 rounded-xl border border-amber-500/20 space-y-2 hover:border-amber-500/40 transition-all shadow-md">
                   <div className="flex items-center justify-between text-[10px] font-mono">
-                    <span className="text-slate-400">{task.dept_id}</span>
+                    <span className="text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
                     <span className="text-slate-400">{task.priority}</span>
                   </div>
                   <h4 className="text-xs font-bold text-slate-300 leading-snug">{task.title}</h4>
-                  <div className="text-[10px] font-mono text-slate-500 truncate">To: {task.assigned_to}</div>
+                  <div className="text-[10px] font-mono text-slate-400 truncate">Assignee: {task.assigned_to}</div>
                   <div className="pt-2 flex items-center justify-between border-t border-slate-900">
                     <button 
                       onClick={() => handleStatusChange(task.task_id, 'PROGRESS')}
-                      className="text-[11px] font-mono text-blue-400 hover:underline font-bold"
+                      className="text-[11px] font-mono text-blue-400 hover:text-blue-300 font-bold inline-flex items-center gap-1"
                     >
-                      Resume &rarr;
+                      <span>Resume</span>
+                      <span>&rarr;</span>
                     </button>
                   </div>
                 </div>
               ))}
-              {pendingTasks.length === 0 && <p className="text-xs text-slate-500 italic py-4 text-center">No pending tasks.</p>}
+              {pendingTasks.length === 0 && <p className="text-xs text-slate-500 italic py-6 text-center">No pending tasks.</p>}
             </div>
           </div>
 
-          {/* 4. FINISHED TASK / COMPLETE */}
-          <div className="bg-slate-900/60 border border-emerald-500/30 rounded-2xl p-4 flex flex-col h-[calc(100vh-330px)] min-h-[480px]">
+          {/* COLUMN 4: FINISHED TASK */}
+          <div className="bg-slate-900/60 border border-emerald-500/30 rounded-2xl p-4 space-y-3 shadow-lg">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="font-mono text-xs font-bold text-emerald-400 flex items-center gap-1.5 uppercase">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                 Finished Task
               </span>
-              <span className="text-xs font-mono bg-emerald-500/10 text-emerald-300 px-2 py-0.5 rounded-full font-bold">
+              <span className="text-xs font-mono bg-emerald-500/10 text-emerald-300 px-2.5 py-0.5 rounded-full font-bold border border-emerald-500/20">
                 {completeTasks.length}
               </span>
             </div>
 
-            <div className="space-y-2.5 flex-1 overflow-y-auto pr-1 kanban-scroll">
+            <div className="space-y-2.5">
               {completeTasks.map(task => (
-                <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-emerald-500/20 space-y-1.5 opacity-85">
+                <div key={task.task_id} className="bg-slate-950 p-4 rounded-xl border border-emerald-500/20 space-y-2 opacity-85 hover:opacity-100 transition-all shadow-md">
                   <div className="flex items-center justify-between text-[10px] font-mono">
-                    <span className="text-slate-500">{task.dept_id}</span>
-                    <span className="text-emerald-400 font-bold">RESOLVED</span>
+                    <span className="text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
+                    <span className="text-emerald-400 font-bold">COMPLETED</span>
                   </div>
                   <h4 className="text-xs font-medium text-slate-400 line-through leading-snug">{task.title}</h4>
-                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-600 pt-1">
+                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 pt-1 border-t border-slate-900">
                     <span>By: {task.assigned_to}</span>
                     <button 
                       onClick={() => handleStatusChange(task.task_id, 'PROGRESS')}
-                      className="text-slate-500 hover:text-slate-300 underline"
+                      className="text-slate-400 hover:text-slate-200 underline"
                     >
                       Reopen
                     </button>
                   </div>
                 </div>
               ))}
-              {completeTasks.length === 0 && <p className="text-xs text-slate-500 italic py-4 text-center">No completed tasks yet.</p>}
+              {completeTasks.length === 0 && <p className="text-xs text-slate-500 italic py-6 text-center">No completed tasks yet.</p>}
             </div>
           </div>
 
@@ -601,7 +628,7 @@ export default function App() {
 
       </main>
 
-      {/* PING NOTIFICATION DRAWER / MODAL */}
+      {/* MODAL 1: PING NOTIFICATION DRAWER */}
       {showPingsModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -627,7 +654,7 @@ export default function App() {
                       onClick={() => handleAcknowledgePing(ping.notification_id)}
                       className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] font-bold"
                     >
-                      Mark as Read &check;
+                      Mark as Read ✓
                     </button>
                   </div>
                 </div>
@@ -640,7 +667,7 @@ export default function App() {
         </div>
       )}
 
-      {/* LICENSE ACTIVATION MODAL (SME 10-Seat Upgrade) */}
+      {/* MODAL 2: LICENSE ACTIVATION (SME 10-Seat Upgrade) */}
       {showLicenseModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <form onSubmit={handleActivateLicense} className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -684,7 +711,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL: SINGLE TASK ASSIGNMENT */}
+      {/* MODAL 3: SINGLE TASK ASSIGNMENT */}
       {showAssignModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <form onSubmit={handleAssignSubmit} className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -753,7 +780,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL: BULK CSV INGESTION */}
+      {/* MODAL 4: BULK CSV INGESTION */}
       {showCsvModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -781,7 +808,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL: REPORT BLOCKER */}
+      {/* MODAL 5: REPORT BLOCKER */}
       {showBlockerModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
