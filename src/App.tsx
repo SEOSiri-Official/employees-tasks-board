@@ -452,7 +452,7 @@ export default function App() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
           
           {/* 1. URGENT ASSIGNING */}
-          <div className="bg-slate-900/60 border border-rose-500/30 rounded-2xl p-4 space-y-3">
+          <div className="bg-slate-900/60 border border-rose-500/30 rounded-2xl p-4 flex flex-col h-[calc(100vh-330px)] min-h-[480px]">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="font-mono text-xs font-bold text-rose-400 flex items-center gap-1.5 uppercase">
                 <Flame className="w-3.5 h-3.5 text-rose-500" />
@@ -463,7 +463,7 @@ export default function App() {
               </span>
             </div>
             
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 flex-1 overflow-y-auto pr-1 kanban-scroll">
               {urgentTasks.map(task => (
                 <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-rose-500/20 space-y-2">
                   <div className="flex items-center justify-between text-[10px] font-mono">
@@ -487,7 +487,7 @@ export default function App() {
           </div>
 
           {/* 2. TASK PROGRESS */}
-          <div className="bg-slate-900/60 border border-blue-500/30 rounded-2xl p-4 space-y-3">
+          <div className="bg-slate-900/60 border border-blue-500/30 rounded-2xl p-4 flex flex-col h-[calc(100vh-330px)] min-h-[480px]">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="font-mono text-xs font-bold text-blue-400 flex items-center gap-1.5 uppercase">
                 <Clock className="w-3.5 h-3.5 text-blue-500" />
@@ -498,7 +498,7 @@ export default function App() {
               </span>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 flex-1 overflow-y-auto pr-1 kanban-scroll">
               {progressTasks.map(task => (
                 <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-blue-500/20 space-y-2">
                   <div className="flex items-center justify-between text-[10px] font-mono">
@@ -528,7 +528,7 @@ export default function App() {
           </div>
 
           {/* 3. PENDING */}
-          <div className="bg-slate-900/60 border border-amber-500/30 rounded-2xl p-4 space-y-3">
+          <div className="bg-slate-900/60 border border-amber-500/30 rounded-2xl p-4 flex flex-col h-[calc(100vh-330px)] min-h-[480px]">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="font-mono text-xs font-bold text-amber-400 flex items-center gap-1.5 uppercase">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
@@ -539,7 +539,7 @@ export default function App() {
               </span>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 flex-1 overflow-y-auto pr-1 kanban-scroll">
               {pendingTasks.map(task => (
                 <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-amber-500/20 space-y-2">
                   <div className="flex items-center justify-between text-[10px] font-mono">
@@ -563,7 +563,7 @@ export default function App() {
           </div>
 
           {/* 4. FINISHED TASK / COMPLETE */}
-          <div className="bg-slate-900/60 border border-emerald-500/30 rounded-2xl p-4 space-y-3">
+          <div className="bg-slate-900/60 border border-emerald-500/30 rounded-2xl p-4 flex flex-col h-[calc(100vh-330px)] min-h-[480px]">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="font-mono text-xs font-bold text-emerald-400 flex items-center gap-1.5 uppercase">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
@@ -574,7 +574,7 @@ export default function App() {
               </span>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 flex-1 overflow-y-auto pr-1 kanban-scroll">
               {completeTasks.map(task => (
                 <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-emerald-500/20 space-y-1.5 opacity-85">
                   <div className="flex items-center justify-between text-[10px] font-mono">
