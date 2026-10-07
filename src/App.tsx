@@ -1,21 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Shield, 
-  User, 
-  Users, 
-  AlertTriangle, 
   Clock, 
   CheckCircle2, 
   Flame, 
   Plus, 
-  Upload, 
   RefreshCw, 
   Bell, 
-  ExternalLink,
-  ChevronRight,
   TrendingUp,
   FileSpreadsheet,
-  AlertCircle
+  AlertTriangle,
+  Key,
+  Filter,
+  Check,
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
 
 const API_GATEWAY = "https://tasks.seosiri.com";
@@ -42,40 +41,52 @@ interface Digest {
   completion_velocity: string;
 }
 
+interface TenantStats {
+  tenant_id: string;
+  company_name: string;
+  tier: string;
+  active_seats: number;
+  max_seats: number;
+  is_free_tier: boolean;
+}
+
 export default function App() {
-  // Authentication & Role State
-  const [employeeId, setEmployeeId] = useState('ETMAGJUMR62'); // Default Admin ID
+  const [employeeId, setEmployeeId] = useState('ETMAGJUMR62');
   const [isAdmin, setIsAdmin] = useState(true);
+  const [selectedDept, setSelectedDept] = useState('ALL');
   
-  // Data State
+  // Data States
   const [tasks, setTasks] = useState<Task[]>([]);
   const [digest, setDigest] = useState<Digest | null>(null);
+  const [tenantStats, setTenantStats] = useState<TenantStats | null>(null);
   const [unreadPings, setUnreadPings] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
 
-  // Modals & Forms
+  // Modals
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showCsvModal, setShowCsvModal] = useState(false);
+  const [showPingsModal, setShowPingsModal] = useState(false);
+  const [showLicenseModal, setShowLicenseModal] = useState(false);
   const [showBlockerModal, setShowBlockerModal] = useState<string | null>(null);
+  
+  // Form Inputs
   const [blockerText, setBlockerText] = useState('');
-
-  // Single Task Form
+  const [licenseTokenInput, setLicenseTokenInput] = useState('');
+  const [licenseStatusMsg, setLicenseStatusMsg] = useState('');
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskAssignee, setNewTaskAssignee] = useState('ETM-AG-EMP-R62');
   const [newTaskDept, setNewTaskDept] = useState('AG');
   const [newTaskPriority, setNewTaskPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'>('HIGH');
   const [newTaskUrgent, setNewTaskUrgent] = useState(false);
-
-  // CSV Text Area
   const [rawCsvText, setRawCsvText] = useState('');
 
-  // Synchronize Tasks and Telemetry
   const fetchTasksAndTelemetry = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Tasks
-      const res = await fetch(`${API_GATEWAY}/v1/tasks`, {
+      // 1. Fetch Tasks (with optional dept filter)
+      const deptQuery = selectedDept !== 'ALL' ? `?dept=${selectedDept}` : '';
+      const res = await fetch(`${API_GATEWAY}/v1/tasks${deptQuery}`, {
         headers: { "X-Employee-ID": employeeId }
       });
       const data = await res.json();
@@ -93,7 +104,16 @@ export default function App() {
         setUnreadPings(pingData.notifications);
       }
 
-      // 3. Fetch Executive Digest (If Admin)
+      // 3. Fetch Tenant Stats (Seats & Tier)
+      const statsRes = await fetch(`${API_GATEWAY}/v1/tenants/stats`, {
+        headers: { "X-Employee-ID": employeeId }
+      });
+      const statsData = await statsRes.json();
+      if (statsData.tenant_id) {
+        setTenantStats(statsData);
+      }
+
+      // 4. Fetch Digest (Admin only)
       if (data.role === 'ADMIN' || data.role === 'DEPT_HEAD') {
         const digRes = await fetch(`${API_GATEWAY}/v1/analytics/digest`, {
           headers: { "X-Employee-ID": employeeId }
@@ -114,9 +134,8 @@ export default function App() {
 
   useEffect(() => {
     fetchTasksAndTelemetry();
-  }, [employeeId]);
+  }, [employeeId, selectedDept]);
 
-  // Transition Task Status
   const handleStatusChange = async (taskId: string, newStatus: string, blockerReason?: string) => {
     try {
       const res = await fetch(`${API_GATEWAY}/v1/tasks/status`, {
@@ -129,7 +148,7 @@ export default function App() {
       });
       const json = await res.json();
       if (json.status === "TRANSITION_LOGGED") {
-        setStatusMessage(`Task updated to ${newStatus}`);
+        setStatusMessage(`Task transitioned to ${newStatus}`);
         setTimeout(() => setStatusMessage(''), 3000);
         fetchTasksAndTelemetry();
       }
@@ -138,7 +157,51 @@ export default function App() {
     }
   };
 
-  // Submit Single Task
+  const handleAcknowledgePing = async (notificationId: string) => {
+    try {
+      await fetch(`${API_GATEWAY}/v1/notifications/ack`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Employee-ID": employeeId
+        },
+        body: JSON.stringify({ notificationId })
+      });
+      setUnreadPings(prev => prev.filter(p => p.notification_id !== notificationId));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleActivateLicense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!licenseTokenInput.trim()) return;
+
+    try {
+      const res = await fetch(`${API_GATEWAY}/v1/tenants/license`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Employee-ID": employeeId
+        },
+        body: JSON.stringify({ licenseToken: licenseTokenInput.trim() })
+      });
+      const json = await res.json();
+      if (json.status === "LICENSE_ACTIVATED") {
+        setLicenseStatusMsg(`Tier upgraded to ${json.tier} (${json.max_seats} Seats)!`);
+        setTimeout(() => {
+          setShowLicenseModal(false);
+          setLicenseStatusMsg('');
+          fetchTasksAndTelemetry();
+        }, 2000);
+      } else {
+        setLicenseStatusMsg(json.message || "Activation Failed.");
+      }
+    } catch (err) {
+      setLicenseStatusMsg("Error connecting to edge gateway.");
+    }
+  };
+
   const handleAssignSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
@@ -169,7 +232,6 @@ export default function App() {
     }
   };
 
-  // Bulk Ingestion
   const handleBulkCsvSubmit = async () => {
     if (!rawCsvText.trim()) return;
 
@@ -205,18 +267,17 @@ export default function App() {
     }
   };
 
-  // Filter Tasks by Pipeline Status
   const urgentTasks = tasks.filter(t => t.status === 'URGENT');
   const progressTasks = tasks.filter(t => t.status === 'PROGRESS');
   const pendingTasks = tasks.filter(t => t.status === 'PENDING');
   const completeTasks = tasks.filter(t => t.status === 'COMPLETE');
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
       
-      {/* Top Enterprise Control Bar */}
-      <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur-md px-6 py-4 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      {/* Control Header */}
+      <header className="border-b border-slate-800 bg-slate-900/95 backdrop-blur-md px-6 py-4 sticky top-0 z-40 shadow-xl">
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-4">
           
           <div className="flex items-center space-x-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-emerald-500 p-0.5 flex items-center justify-center font-bold text-white shadow-lg">
@@ -233,11 +294,47 @@ export default function App() {
             </div>
           </div>
 
-          {/* Identity & View Switcher */}
-          <div className="flex items-center space-x-3">
-            <div className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 flex items-center space-x-2 text-xs font-mono">
+          {/* Seat Status & Control Badges */}
+          <div className="flex flex-wrap items-center gap-2.5 text-xs font-mono">
+            {tenantStats && (
+              <div className="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+                <span className="text-slate-400">Seats:</span>
+                <strong className={tenantStats.active_seats >= tenantStats.max_seats ? "text-rose-400" : "text-emerald-400"}>
+                  {tenantStats.active_seats} / {tenantStats.max_seats}
+                </strong>
+                <span className="text-[10px] text-slate-500">({tenantStats.tier})</span>
+                {tenantStats.is_free_tier && (
+                  <button 
+                    onClick={() => setShowLicenseModal(true)}
+                    className="ml-1 text-sky-400 hover:underline font-bold text-[10px]"
+                  >
+                    [Upgrade]
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Department Filter (Admin View) */}
+            {isAdmin && (
+              <div className="flex items-center space-x-1.5 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+                <Filter className="w-3.5 h-3.5 text-slate-500" />
+                <select 
+                  value={selectedDept}
+                  onChange={(e) => setSelectedDept(e.target.value)}
+                  className="bg-transparent text-slate-200 font-bold focus:outline-none cursor-pointer"
+                >
+                  <option value="ALL">All Departments</option>
+                  <option value="AG">AG (Core Architecture)</option>
+                  <option value="ENG">ENG (Engineering)</option>
+                  <option value="OPS">OPS (Operations)</option>
+                  <option value="BIOPHARMA">BIOPHARMA (Life Sciences)</option>
+                </select>
+              </div>
+            )}
+
+            {/* Identity Switcher */}
+            <div className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 flex items-center space-x-2">
               <Shield className="w-3.5 h-3.5 text-blue-400" />
-              <span className="text-slate-400">Current ID:</span>
               <select 
                 value={employeeId} 
                 onChange={(e) => setEmployeeId(e.target.value)}
@@ -261,10 +358,10 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Workspace Container */}
+      {/* Main Board Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
         
-        {/* Executive Telemetry Digest (Admin View Only) */}
+        {/* Executive Digest */}
         {digest && (
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
@@ -302,27 +399,31 @@ export default function App() {
           </div>
         )}
 
-        {/* Real-time Notification Ping Alerts Bar */}
+        {/* Interactive Ping Notice Alert Bar */}
         {unreadPings.length > 0 && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center justify-between font-mono text-xs text-amber-300">
-            <div className="flex items-center space-x-2">
+          <div 
+            onClick={() => setShowPingsModal(true)}
+            className="bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/30 rounded-xl p-3.5 flex items-center justify-between font-mono text-xs text-amber-300 cursor-pointer transition-all shadow-lg"
+          >
+            <div className="flex items-center space-x-2.5">
               <Bell className="w-4 h-4 text-amber-400 animate-bounce" />
-              <span><strong>Ping Notice:</strong> You have {unreadPings.length} unread priority notification(s) waiting.</span>
+              <span><strong>Ping Notice Active:</strong> You have {unreadPings.length} unread priority notice(s). Click to review &amp; dismiss.</span>
             </div>
-            <span className="text-[10px] uppercase font-bold bg-amber-500/20 px-2 py-0.5 rounded text-amber-300">
-              Active Sentinel
+            <span className="text-[10px] uppercase font-bold bg-amber-500/20 px-2 py-1 rounded text-amber-300 flex items-center gap-1">
+              <span>Open Ping Drawer</span>
+              <ChevronRight className="w-3 h-3" />
             </span>
           </div>
         )}
 
-        {/* Action Header: Assign & Bulk Upload */}
+        {/* Action Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-bold text-white tracking-tight">
               {isAdmin ? "Enterprise Task Stream (Global View)" : "Individual Assigned Workflow"}
             </h2>
             <p className="text-xs text-slate-400 font-mono">
-              {isAdmin ? "Global oversight across all departments & workforce allocation." : "Strict zero-trust isolated task queue."}
+              {isAdmin ? "Global multi-department pipeline & velocity oversight." : "Zero-trust isolated personal queue."}
             </p>
           </div>
 
@@ -347,10 +448,10 @@ export default function App() {
           )}
         </div>
 
-        {/* THE 4-COLUMN KANBAN PIPELINE (FROM YOUR HANDWRITTEN BLUEPRINT) */}
+        {/* 4-COLUMN KANBAN PIPELINE */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
           
-          {/* COLUMN 1: URGENT TASKS ASSIGNING */}
+          {/* 1. URGENT ASSIGNING */}
           <div className="bg-slate-900/60 border border-rose-500/30 rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="font-mono text-xs font-bold text-rose-400 flex items-center gap-1.5 uppercase">
@@ -385,7 +486,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* COLUMN 2: TASK PROGRESS */}
+          {/* 2. TASK PROGRESS */}
           <div className="bg-slate-900/60 border border-blue-500/30 rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="font-mono text-xs font-bold text-blue-400 flex items-center gap-1.5 uppercase">
@@ -426,7 +527,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* COLUMN 3: PENDING */}
+          {/* 3. PENDING */}
           <div className="bg-slate-900/60 border border-amber-500/30 rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="font-mono text-xs font-bold text-amber-400 flex items-center gap-1.5 uppercase">
@@ -461,7 +562,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* COLUMN 4: FINISHED TASK / COMPLETE */}
+          {/* 4. FINISHED TASK / COMPLETE */}
           <div className="bg-slate-900/60 border border-emerald-500/30 rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-slate-800">
               <span className="font-mono text-xs font-bold text-emerald-400 flex items-center gap-1.5 uppercase">
@@ -481,7 +582,15 @@ export default function App() {
                     <span className="text-emerald-400 font-bold">RESOLVED</span>
                   </div>
                   <h4 className="text-xs font-medium text-slate-400 line-through leading-snug">{task.title}</h4>
-                  <div className="text-[10px] font-mono text-slate-600">By: {task.assigned_to}</div>
+                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-600 pt-1">
+                    <span>By: {task.assigned_to}</span>
+                    <button 
+                      onClick={() => handleStatusChange(task.task_id, 'PROGRESS')}
+                      className="text-slate-500 hover:text-slate-300 underline"
+                    >
+                      Reopen
+                    </button>
+                  </div>
                 </div>
               ))}
               {completeTasks.length === 0 && <p className="text-xs text-slate-500 italic py-4 text-center">No completed tasks yet.</p>}
@@ -492,7 +601,90 @@ export default function App() {
 
       </main>
 
-      {/* MODAL 1: SINGLE TASK ASSIGNMENT */}
+      {/* PING NOTIFICATION DRAWER / MODAL */}
+      {showPingsModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2 text-amber-400">
+                <Bell className="w-4 h-4" />
+                <h3 className="font-bold text-white text-sm">Active Ping Notices ({unreadPings.length})</h3>
+              </div>
+              <button onClick={() => setShowPingsModal(false)} className="text-slate-500 hover:text-white">✕</button>
+            </div>
+
+            <div className="space-y-2.5 max-h-80 overflow-y-auto">
+              {unreadPings.map(ping => (
+                <div key={ping.notification_id} className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-rose-400 font-bold text-[10px]">{ping.type}</span>
+                    <span className="text-slate-500 text-[10px]">{new Date(ping.created_at).toLocaleTimeString()}</span>
+                  </div>
+                  <h4 className="text-xs font-bold text-white">{ping.title}</h4>
+                  <p className="text-[11px] text-slate-300 leading-relaxed font-sans">{ping.message}</p>
+                  <div className="pt-2 text-right">
+                    <button
+                      onClick={() => handleAcknowledgePing(ping.notification_id)}
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] font-bold"
+                    >
+                      Mark as Read &check;
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {unreadPings.length === 0 && (
+                <p className="text-slate-500 italic text-center py-6">All pings acknowledged.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LICENSE ACTIVATION MODAL (SME 10-Seat Upgrade) */}
+      {showLicenseModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <form onSubmit={handleActivateLicense} className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div className="flex items-center space-x-2 text-sky-400">
+                <Key className="w-4 h-4" />
+                <h3 className="font-bold text-white text-sm">Activate SEOSiri License Token</h3>
+              </div>
+              <button type="button" onClick={() => setShowLicenseModal(false)} className="text-slate-500 hover:text-white">✕</button>
+            </div>
+            <p className="text-slate-400 text-[11px] leading-relaxed">
+              Unlock unlimited corporate seats (&gt;10 seats) by entering your cryptographic SEOSiri License Key:
+            </p>
+            <input
+              type="text"
+              placeholder="e.g. PRO_US_company_1818241500_..."
+              value={licenseTokenInput}
+              onChange={(e) => setLicenseTokenInput(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+            />
+            {licenseStatusMsg && (
+              <p className="text-emerald-400 text-[11px] font-bold">{licenseStatusMsg}</p>
+            )}
+            <div className="flex items-center justify-between pt-2">
+              <a 
+                href="https://developers.seosiri.com/#key-issuer" 
+                target="_blank" 
+                rel="noreferrer"
+                className="text-slate-400 hover:underline text-[10px]"
+              >
+                Purchase via Payoneer &rarr;
+              </a>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-md transition-all"
+              >
+                Activate Token
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* MODAL: SINGLE TASK ASSIGNMENT */}
       {showAssignModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <form onSubmit={handleAssignSubmit} className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -561,7 +753,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 2: BULK CSV INGESTION */}
+      {/* MODAL: BULK CSV INGESTION */}
       {showCsvModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -589,7 +781,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 3: REPORT BLOCKER */}
+      {/* MODAL: REPORT BLOCKER */}
       {showBlockerModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
