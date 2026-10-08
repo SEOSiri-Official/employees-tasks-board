@@ -338,11 +338,11 @@ export default function App() {
                   onChange={(e) => setSelectedDept(e.target.value)}
                   className="bg-slate-950 text-slate-200 font-semibold focus:outline-none cursor-pointer"
                 >
-                  <option value="ALL" className="bg-slate-900 text-slate-100">All Departments</option>
-                  <option value="AG" className="bg-slate-900 text-slate-100">AG (Architecture)</option>
-                  <option value="ENG" className="bg-slate-900 text-slate-100">ENG (Engineering)</option>
-                  <option value="OPS" className="bg-slate-900 text-slate-100">OPS (Operations)</option>
-                  <option value="BIOPHARMA" className="bg-slate-900 text-slate-100">BIOPHARMA (Life Sciences)</option>
+                  <option className="bg-slate-900 text-white" value="ALL" className="bg-slate-900 text-slate-100">All Departments</option>
+                  <option className="bg-slate-900 text-white" value="AG" className="bg-slate-900 text-slate-100">AG (Architecture)</option>
+                  <option className="bg-slate-900 text-white" value="ENG" className="bg-slate-900 text-slate-100">ENG (Engineering)</option>
+                  <option className="bg-slate-900 text-white" value="OPS" className="bg-slate-900 text-slate-100">OPS (Operations)</option>
+                  <option className="bg-slate-900 text-white" value="BIOPHARMA" className="bg-slate-900 text-slate-100">BIOPHARMA (Life Sciences)</option>
                 </select>
               </div>
             )}
@@ -355,8 +355,8 @@ export default function App() {
                 onChange={(e) => setEmployeeId(e.target.value)}
                 className="bg-slate-950 text-emerald-400 font-bold focus:outline-none cursor-pointer"
               >
-                <option value="ETMAGJUMR62" className="bg-slate-900 text-slate-100">ETMAGJUMR62 (Admin View)</option>
-                <option value="ETM-AG-EMP-R62" className="bg-slate-900 text-slate-100">ETM-AG-EMP-R62 (Employee View)</option>
+                <option className="bg-slate-900 text-white" value="ETMAGJUMR62" className="bg-slate-900 text-slate-100">ETMAGJUMR62 (Admin View)</option>
+                <option className="bg-slate-900 text-white" value="ETM-AG-EMP-R62" className="bg-slate-900 text-slate-100">ETM-AG-EMP-R62 (Employee View)</option>
               </select>
             </div>
 
@@ -746,10 +746,10 @@ export default function App() {
                   onChange={(e) => setNewTaskPriority(e.target.value as any)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white"
                 >
-                  <option value="LOW" className="bg-slate-900">LOW</option>
-                  <option value="MEDIUM" className="bg-slate-900">MEDIUM</option>
-                  <option value="HIGH" className="bg-slate-900">HIGH</option>
-                  <option value="CRITICAL" className="bg-slate-900">CRITICAL</option>
+                  <option className="bg-slate-900 text-white" value="LOW" className="bg-slate-900">LOW</option>
+                  <option className="bg-slate-900 text-white" value="MEDIUM" className="bg-slate-900">MEDIUM</option>
+                  <option className="bg-slate-900 text-white" value="HIGH" className="bg-slate-900">HIGH</option>
+                  <option className="bg-slate-900 text-white" value="CRITICAL" className="bg-slate-900">CRITICAL</option>
                 </select>
               </div>
             </div>
