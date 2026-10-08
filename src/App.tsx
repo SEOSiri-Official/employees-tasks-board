@@ -12,7 +12,6 @@ import {
   AlertTriangle,
   Key,
   Filter,
-  Check,
   ChevronRight
 } from 'lucide-react';
 
@@ -60,6 +59,7 @@ export default function App() {
   const [tenantStats, setTenantStats] = useState<TenantStats | null>(null);
   const [unreadPings, setUnreadPings] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
 
   // Modals
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -142,6 +142,8 @@ export default function App() {
       });
       const json = await res.json();
       if (json.status === "TRANSITION_LOGGED") {
+        setStatusMessage(`Task updated: ${newStatus}`);
+        setTimeout(() => setStatusMessage(''), 3000);
         fetchTasksAndTelemetry();
       }
     } catch (err) {
@@ -180,12 +182,12 @@ export default function App() {
       });
       const json = await res.json();
       if (json.status === "LICENSE_ACTIVATED") {
-        setLicenseStatusMsg(`Upgraded to ${json.tier} (${json.max_seats} Seats)!`);
+        setLicenseStatusMsg(`Tier upgraded: ${json.tier} (${json.max_seats} Seats)!`);
         setTimeout(() => {
           setShowLicenseModal(false);
           setLicenseStatusMsg('');
           fetchTasksAndTelemetry();
-        }, 1500);
+        }, 2000);
       } else {
         setLicenseStatusMsg(json.message || "Activation Failed.");
       }
@@ -267,22 +269,15 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans selection:bg-blue-600 selection:text-white">
       
-      {/* 1. Header with Official Vector Logo & Concise Phrasing */}
+      {/* 1. Global Enterprise Header */}
       <header className="border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-md px-4 sm:px-6 lg:px-8 py-3.5 sticky top-0 z-40 shadow-2xl">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           
-          {/* Brand Identity */}
+          {/* Brand Identity with Vector Shield Icon */}
           <div className="flex items-center space-x-3 w-full md:w-auto justify-between md:justify-start">
             <div className="flex items-center space-x-3">
-              {/* Vector Logo */}
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-emerald-500 p-1 flex items-center justify-center shrink-0 shadow-lg border border-blue-400/30">
-                <svg className="w-full h-full text-white" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="512" height="512" rx="128" fill="#0f172a" />
-                  <circle cx="256" cy="256" r="190" fill="none" stroke="#0284c7" strokeWidth="28" strokeDasharray="800" strokeDashoffset="100" />
-                  <circle cx="256" cy="256" r="130" fill="none" stroke="#38bdf8" strokeWidth="20" />
-                  <path d="M 256 120 L 256 256 L 350 256" fill="none" stroke="#34d399" strokeWidth="28" strokeLinecap="round" strokeLinejoin="round" />
-                  <circle cx="256" cy="256" r="32" fill="#38bdf8" />
-                </svg>
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-emerald-500 p-2 flex items-center justify-center shrink-0 shadow-lg border border-blue-400/30">
+                <Shield className="w-5 h-5 text-white" />
               </div>
 
               <div>
@@ -295,11 +290,12 @@ export default function App() {
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400 font-mono tracking-tight">
-                  Autonomous Task &amp; Workforce Orchestration
+                  Autonomous Workforce &amp; Task Velocity Orchestration
                 </p>
               </div>
             </div>
 
+            {/* Mobile Refresh Button */}
             <button
               onClick={fetchTasksAndTelemetry}
               disabled={loading}
@@ -309,10 +305,10 @@ export default function App() {
             </button>
           </div>
 
-          {/* Controls: Seats, Styled Dark Dropdowns, Identity Switcher */}
+          {/* Controls: Seats, Dept Filter, Identity Switcher */}
           <div className="flex flex-wrap items-center justify-end gap-2.5 w-full md:w-auto text-xs font-mono">
             {tenantStats && (
-              <div className="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 shadow-sm">
+              <div className="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800/90 shadow-sm">
                 <span className="text-slate-400">Seats:</span>
                 <strong className={tenantStats.active_seats >= tenantStats.max_seats ? "text-rose-400 font-bold" : "text-emerald-400 font-bold"}>
                   {tenantStats.active_seats} / {tenantStats.max_seats}
@@ -329,34 +325,36 @@ export default function App() {
               </div>
             )}
 
-            {/* Department Filter with Dark-Themed Option Elements */}
+            {/* Department Filter (Admin View) */}
             {isAdmin && (
-              <div className="flex items-center space-x-1.5 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 shadow-sm">
+              <div className="flex items-center space-x-1.5 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800/90 shadow-sm">
                 <Filter className="w-3.5 h-3.5 text-slate-400" />
                 <select 
                   value={selectedDept}
                   onChange={(e) => setSelectedDept(e.target.value)}
-                  className="bg-slate-950 text-slate-200 font-semibold focus:outline-none cursor-pointer"
+                  style={{ colorScheme: 'dark' }}
+                  className="bg-transparent text-slate-200 font-semibold focus:outline-none cursor-pointer"
                 >
-                  <option className="bg-slate-900 text-white" value="ALL" className="bg-slate-900 text-slate-100">All Departments</option>
-                  <option className="bg-slate-900 text-white" value="AG" className="bg-slate-900 text-slate-100">AG (Architecture)</option>
-                  <option className="bg-slate-900 text-white" value="ENG" className="bg-slate-900 text-slate-100">ENG (Engineering)</option>
-                  <option className="bg-slate-900 text-white" value="OPS" className="bg-slate-900 text-slate-100">OPS (Operations)</option>
-                  <option className="bg-slate-900 text-white" value="BIOPHARMA" className="bg-slate-900 text-slate-100">BIOPHARMA (Life Sciences)</option>
+                  <option value="ALL">All Departments</option>
+                  <option value="AG">AG (Core Architecture)</option>
+                  <option value="ENG">ENG (Engineering)</option>
+                  <option value="OPS">OPS (Operations)</option>
+                  <option value="BIOPHARMA">BIOPHARMA (Life Sciences)</option>
                 </select>
               </div>
             )}
 
             {/* Identity Switcher */}
-            <div className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 flex items-center space-x-2 shadow-sm">
+            <div className="bg-slate-950 border border-slate-800/90 rounded-xl px-3 py-1.5 flex items-center space-x-2 shadow-sm">
               <Shield className="w-3.5 h-3.5 text-blue-400" />
               <select 
                 value={employeeId} 
                 onChange={(e) => setEmployeeId(e.target.value)}
-                className="bg-slate-950 text-emerald-400 font-bold focus:outline-none cursor-pointer"
+                style={{ colorScheme: 'dark' }}
+                className="bg-transparent text-emerald-400 font-bold focus:outline-none cursor-pointer"
               >
-                <option className="bg-slate-900 text-white" value="ETMAGJUMR62" className="bg-slate-900 text-slate-100">ETMAGJUMR62 (Admin View)</option>
-                <option className="bg-slate-900 text-white" value="ETM-AG-EMP-R62" className="bg-slate-900 text-slate-100">ETM-AG-EMP-R62 (Employee View)</option>
+                <option value="ETMAGJUMR62">ETMAGJUMR62 (Admin Global View)</option>
+                <option value="ETM-AG-EMP-R62">ETM-AG-EMP-R62 (Employee View)</option>
               </select>
             </div>
 
@@ -376,13 +374,13 @@ export default function App() {
       {/* Main Workspace */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         
-        {/* Executive Department Velocity Digest */}
+        {/* Executive Velocity Digest */}
         {digest && (
           <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
               <span className="text-xs font-mono font-bold text-slate-300 uppercase flex items-center gap-1.5">
                 <TrendingUp className="w-4 h-4 text-emerald-400" />
-                <span>Department Velocity Digest</span>
+                <span>Executive Department Velocity Digest</span>
               </span>
               <span className="text-xs font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                 Velocity: {digest.completion_velocity}
@@ -395,7 +393,7 @@ export default function App() {
                 <strong className="text-xl text-white font-bold">{digest.total_tasks}</strong>
               </div>
               <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/80">
-                <span className="text-[10px] text-emerald-400 uppercase block font-semibold">FINISHED</span>
+                <span className="text-[10px] text-emerald-400 uppercase block font-semibold">FINISHED TASK</span>
                 <strong className="text-xl text-emerald-400 font-bold">{digest.completed}</strong>
               </div>
               <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/80">
@@ -407,14 +405,14 @@ export default function App() {
                 <strong className="text-xl text-amber-400 font-bold">{digest.urgent_queue}</strong>
               </div>
               <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800/80">
-                <span className="text-[10px] text-rose-400 uppercase block font-semibold">BLOCKERS</span>
+                <span className="text-[10px] text-rose-400 uppercase block font-semibold">FLAGGED BLOCKERS</span>
                 <strong className="text-xl text-rose-400 font-bold">{digest.blockers_reported}</strong>
               </div>
             </div>
           </div>
         )}
 
-        {/* Real-Time Notification Ping Notice Banner */}
+        {/* Ping Notice Banner */}
         {unreadPings.length > 0 && (
           <div 
             onClick={() => setShowPingsModal(true)}
@@ -422,23 +420,23 @@ export default function App() {
           >
             <div className="flex items-center space-x-2.5">
               <Bell className="w-4 h-4 text-amber-400 animate-bounce shrink-0" />
-              <span><strong>Ping Notice Active:</strong> You have {unreadPings.length} unread priority notice(s). Click to review.</span>
+              <span><strong>Ping Notice Active:</strong> You have {unreadPings.length} unread priority notice(s). Click to review &amp; dismiss.</span>
             </div>
             <span className="text-[10px] uppercase font-bold bg-amber-500/20 px-2.5 py-1 rounded-lg text-amber-300 flex items-center gap-1 shrink-0">
-              <span>View Drawer</span>
+              <span>Open Ping Drawer</span>
               <ChevronRight className="w-3 h-3" />
             </span>
           </div>
         )}
 
-        {/* Clean, Sensible Pipeline Bar */}
+        {/* Section Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-1">
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
-              {isAdmin ? "Task Pipeline" : "My Work Queue"}
+              Task Pipeline
             </h2>
             <p className="text-xs text-slate-400 font-mono">
-              {isAdmin ? "Autonomous queue routing and throughput." : "Isolated personal tasks."}
+              Department workflows, task progress, and blocker tracking.
             </p>
           </div>
 
@@ -457,13 +455,13 @@ export default function App() {
                 className="flex-1 sm:flex-none px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm"
               >
                 <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-                <span>Bulk Import</span>
+                <span>Bulk CSV Import</span>
               </button>
             </div>
           )}
         </div>
 
-        {/* 4-COLUMN KANBAN PIPELINE */}
+        {/* 4-Column Pipeline Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
           
           {/* COLUMN 1: URGENT ASSIGNING */}
@@ -498,7 +496,7 @@ export default function App() {
                   </div>
                 </div>
               ))}
-              {urgentTasks.length === 0 && <p className="text-xs text-slate-500 italic py-6 text-center">No urgent tasks.</p>}
+              {urgentTasks.length === 0 && <p className="text-xs text-slate-500 italic py-6 text-center">No urgent tasks queued.</p>}
             </div>
           </div>
 
@@ -535,7 +533,7 @@ export default function App() {
                       className="text-[11px] font-mono text-emerald-400 hover:text-emerald-300 font-bold inline-flex items-center gap-1"
                     >
                       <span>Finish</span>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>✓</span>
                     </button>
                   </div>
                 </div>
@@ -611,7 +609,7 @@ export default function App() {
                   </div>
                 </div>
               ))}
-              {completeTasks.length === 0 && <p className="text-xs text-slate-500 italic py-6 text-center">No completed tasks.</p>}
+              {completeTasks.length === 0 && <p className="text-xs text-slate-500 italic py-6 text-center">No completed tasks yet.</p>}
             </div>
           </div>
 
@@ -744,12 +742,13 @@ export default function App() {
                 <select 
                   value={newTaskPriority} 
                   onChange={(e) => setNewTaskPriority(e.target.value as any)}
+                  style={{ colorScheme: 'dark' }}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white"
                 >
-                  <option className="bg-slate-900 text-white" value="LOW" className="bg-slate-900">LOW</option>
-                  <option className="bg-slate-900 text-white" value="MEDIUM" className="bg-slate-900">MEDIUM</option>
-                  <option className="bg-slate-900 text-white" value="HIGH" className="bg-slate-900">HIGH</option>
-                  <option className="bg-slate-900 text-white" value="CRITICAL" className="bg-slate-900">CRITICAL</option>
+                  <option value="LOW">LOW</option>
+                  <option value="MEDIUM">MEDIUM</option>
+                  <option value="HIGH">HIGH</option>
+                  <option value="CRITICAL">CRITICAL</option>
                 </select>
               </div>
             </div>
@@ -759,13 +758,13 @@ export default function App() {
                 checked={newTaskUrgent} 
                 onChange={(e) => setNewTaskUrgent(e.target.checked)} 
               />
-              <span>Route immediately to <strong>Urgent Assigning</strong> (Ping Alert)</span>
+              <span>Route immediately to <strong>Urgent Tasks Assigning</strong> (Ping Alert)</span>
             </label>
             <button 
               type="submit" 
               className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-md"
             >
-              Inject Task
+              Inject Task into Pipeline
             </button>
           </form>
         </div>
@@ -776,7 +775,7 @@ export default function App() {
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <h3 className="text-sm font-bold text-white">Bulk CSV / Spreadsheet Import</h3>
+              <h3 className="text-sm font-bold text-white">Bulk CSV / Spreadsheet Ingestion</h3>
               <button onClick={() => setShowCsvModal(false)} className="text-slate-500 hover:text-white">✕</button>
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
@@ -811,7 +810,7 @@ export default function App() {
               rows={3}
               value={blockerText}
               onChange={(e) => setBlockerText(e.target.value)}
-              placeholder="Explain blocker (e.g. Missing AWS IAM credentials)..."
+              placeholder="Explain blocker (e.g. Missing AWS S3 IAM credentials)..."
               className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-amber-500"
             />
             <button
@@ -822,15 +821,15 @@ export default function App() {
               }}
               className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl transition-all shadow-md"
             >
-              Escalate Blocker Notice
+              Escalate Blocker Notice to Management
             </button>
           </div>
         </div>
       )}
 
-      {/* Clean Footer */}
+      {/* Footer */}
       <footer className="border-t border-slate-900 bg-slate-950 px-6 py-4 text-center font-mono text-[11px] text-slate-500">
-        &copy; {new Date().getFullYear()} SEOSiri Enterprise Labs • Task Sentinel Global Infrastructure
+        &copy; {new Date().getFullYear()} SEOSiri Enterprise Labs • Tasks Sentinel Global Infrastructure
       </footer>
 
     </div>
