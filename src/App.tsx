@@ -125,6 +125,15 @@ export default function App() {
 
   useEffect(() => {
     fetchTasksAndTelemetry();
+
+    // Auto-polling interval: 15s when active tab
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchTasksAndTelemetry();
+      }
+    }, 15000);
+
+    return () => clearInterval(interval);
   }, [employeeId, selectedDept]);
 
   const handleStatusChange = async (taskId: string, newStatus: string, blockerReason?: string) => {
