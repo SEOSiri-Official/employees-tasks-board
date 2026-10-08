@@ -53,7 +53,6 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(true);
   const [selectedDept, setSelectedDept] = useState('ALL');
   
-  // Data States
   const [tasks, setTasks] = useState<Task[]>([]);
   const [digest, setDigest] = useState<Digest | null>(null);
   const [tenantStats, setTenantStats] = useState<TenantStats | null>(null);
@@ -61,14 +60,12 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
 
-  // Modals
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showCsvModal, setShowCsvModal] = useState(false);
   const [showPingsModal, setShowPingsModal] = useState(false);
   const [showLicenseModal, setShowLicenseModal] = useState(false);
   const [showBlockerModal, setShowBlockerModal] = useState<string | null>(null);
   
-  // Form Inputs
   const [blockerText, setBlockerText] = useState('');
   const [licenseTokenInput, setLicenseTokenInput] = useState('');
   const [licenseStatusMsg, setLicenseStatusMsg] = useState('');
@@ -327,13 +324,12 @@ export default function App() {
 
             {/* Department Filter (Admin View) */}
             {isAdmin && (
-              <div className="flex items-center space-x-1.5 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800/90 shadow-sm">
+              <div className="flex items-center space-x-1.5 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800 shadow-sm">
                 <Filter className="w-3.5 h-3.5 text-slate-400" />
                 <select 
                   value={selectedDept}
                   onChange={(e) => setSelectedDept(e.target.value)}
-                  style={{ colorScheme: 'dark' }}
-                  className="bg-transparent text-slate-200 font-semibold focus:outline-none cursor-pointer"
+                  className="bg-slate-900 text-slate-100 font-semibold focus:outline-none cursor-pointer"
                 >
                   <option value="ALL">All Departments</option>
                   <option value="AG">AG (Core Architecture)</option>
@@ -345,13 +341,12 @@ export default function App() {
             )}
 
             {/* Identity Switcher */}
-            <div className="bg-slate-950 border border-slate-800/90 rounded-xl px-3 py-1.5 flex items-center space-x-2 shadow-sm">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 flex items-center space-x-2 shadow-sm">
               <Shield className="w-3.5 h-3.5 text-blue-400" />
               <select 
                 value={employeeId} 
                 onChange={(e) => setEmployeeId(e.target.value)}
-                style={{ colorScheme: 'dark' }}
-                className="bg-transparent text-emerald-400 font-bold focus:outline-none cursor-pointer"
+                className="bg-slate-900 text-emerald-400 font-bold focus:outline-none cursor-pointer"
               >
                 <option value="ETMAGJUMR62">ETMAGJUMR62 (Admin Global View)</option>
                 <option value="ETM-AG-EMP-R62">ETM-AG-EMP-R62 (Employee View)</option>
@@ -656,7 +651,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 2: LICENSE ACTIVATION (SME 10-Seat Upgrade) */}
+      {/* MODAL 2: LICENSE ACTIVATION */}
       {showLicenseModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <form onSubmit={handleActivateLicense} className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -742,7 +737,6 @@ export default function App() {
                 <select 
                   value={newTaskPriority} 
                   onChange={(e) => setNewTaskPriority(e.target.value as any)}
-                  style={{ colorScheme: 'dark' }}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white"
                 >
                   <option value="LOW">LOW</option>

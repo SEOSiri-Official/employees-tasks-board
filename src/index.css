@@ -14,10 +14,12 @@ body {
 }
 
 select {
-  color-scheme: dark;
+  color-scheme: dark !important;
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
 }
 
 select option {
-  background-color: #0f172a;
-  color: #f8fafc;
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
 }
