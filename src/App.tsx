@@ -101,6 +101,63 @@ export default function App() {
   const [newTaskPriority, setNewTaskPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'>('HIGH');
   const [newTaskUrgent, setNewTaskUrgent] = useState(false);
   const [rawCsvText, setRawCsvText] = useState('');
+  const [activeTaskForComments, setActiveTaskForComments] = useState<Task | null>(null);
+  const [taskComments, setTaskComments] = useState<any[]>([]);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [autoDispatchStatus, setAutoDispatchStatus] = useState<string | null>(null);
+
+  const fetchComments = async (taskId: string) => {
+    try {
+      const res = await fetch(`${API_GATEWAY}/v1/tasks/${taskId}/comments`, {
+        headers: { "X-Employee-ID": employeeId }
+      });
+      const data = await res.json();
+      setTaskComments(data.comments || []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handlePostComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeTaskForComments || !newCommentText.trim()) return;
+
+    try {
+      await fetch(`${API_GATEWAY}/v1/tasks/${activeTaskForComments.task_id}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Employee-ID": employeeId
+        },
+        body: JSON.stringify({ content: newCommentText.trim() })
+      });
+      setNewCommentText('');
+      fetchComments(activeTaskForComments.task_id);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleAutoDispatch = async () => {
+    setAutoDispatchStatus("Querying department backlog...");
+    try {
+      const res = await fetch(`${API_GATEWAY}/v1/tasks/auto-dispatch`, {
+        method: "POST",
+        headers: { "X-Employee-ID": employeeId }
+      });
+      const data = await res.json();
+      if (data.status === "DISPATCHED") {
+        setAutoDispatchStatus(`Dispatched: ${data.task.title}`);
+        fetchTasksAndTelemetry();
+      } else {
+        setAutoDispatchStatus(data.message || "No tasks available.");
+      }
+      setTimeout(() => setAutoDispatchStatus(null), 4000);
+    } catch (e) {
+      setAutoDispatchStatus("Dispatch failed.");
+    }
+  };
+
 
   // 1. Fetch Dynamic Departments from Edge
   const fetchDepartments = async () => {
