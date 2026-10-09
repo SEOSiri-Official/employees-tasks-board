@@ -19,6 +19,7 @@ import {
   RotateCcw,
   Building2,
   FolderPlus,
+  Users,
   UserCheck
 } from 'lucide-react';
 
@@ -83,6 +84,12 @@ export default function App() {
   // Modals
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showCsvModal, setShowCsvModal] = useState(false);
+  const [showTeamModal, setShowTeamModal] = useState(false);
+  const [teamEmployees, setTeamEmployees] = useState<any[]>([]);
+  const [newEmpName, setNewEmpName] = useState("");
+  const [newEmpEmail, setNewEmpEmail] = useState("");
+  const [newEmpDept, setNewEmpDept] = useState("AG");
+  const [newEmpRole, setNewEmpRole] = useState("EMP");
   const [showPingsModal, setShowPingsModal] = useState(false);
   const [showLicenseModal, setShowLicenseModal] = useState(false);
   const [showDeptModal, setShowDeptModal] = useState(false);
@@ -315,6 +322,50 @@ export default function App() {
       }
     } catch (err) {
       setLicenseStatusMsg("Connection Error.");
+    }
+  };
+
+  const fetchTeamEmployees = async () => {
+    try {
+      const res = await fetch(`${API_GATEWAY}/v1/employees`, {
+        headers: { "X-Employee-ID": employeeId }
+      });
+      const data = await res.json();
+      if (data.employees) setTeamEmployees(data.employees);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleRegisterEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmpName.trim() || !newEmpEmail.trim()) return;
+
+    try {
+      const res = await fetch(`${API_GATEWAY}/v1/employees/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Employee-ID": employeeId
+        },
+        body: JSON.stringify({
+          fullName: newEmpName,
+          email: newEmpEmail,
+          deptId: newEmpDept,
+          role: newEmpRole
+        })
+      });
+      const data = await res.json();
+      if (data.status === "EMPLOYEE_REGISTERED") {
+        setNewEmpName("");
+        setNewEmpEmail("");
+        fetchTeamEmployees();
+        fetchTasksAndTelemetry();
+      } else {
+        alert(data.message || "Registration failed.");
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -600,6 +651,14 @@ export default function App() {
                 >
                   <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
                   <span>CSV</span>
+                </button>
+
+                <button
+                  onClick={() => { setShowTeamModal(true); fetchTeamEmployees(); }}
+                  className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
+                >
+                  <Users className="w-4 h-4 text-sky-400" />
+                  <span>Team</span>
                 </button>
               </div>
             )}
