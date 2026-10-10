@@ -19,8 +19,11 @@ import {
   RotateCcw,
   Building2,
   FolderPlus,
+  UserCheck,
   Users,
-  UserCheck
+  MessageSquare,
+  Zap,
+  ExternalLink
 } from 'lucide-react';
 
 const API_GATEWAY = "https://tasks.seosiri.com";
@@ -62,19 +65,14 @@ interface TenantStats {
 }
 
 export default function App() {
-  // Session Identity State
   const [employeeId, setEmployeeId] = useState('ETMAGJUMR62');
   const [customIdInput, setCustomIdInput] = useState('');
   const [isAdmin, setIsAdmin] = useState(true);
   
-  // Dynamic Organization Departments
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDept, setSelectedDept] = useState('ALL');
-  
-  // View Toggle
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
   
-  // Data States
   const [tasks, setTasks] = useState<Task[]>([]);
   const [digest, setDigest] = useState<Digest | null>(null);
   const [tenantStats, setTenantStats] = useState<TenantStats | null>(null);
@@ -84,19 +82,26 @@ export default function App() {
   // Modals
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showCsvModal, setShowCsvModal] = useState(false);
-  const [showTeamModal, setShowTeamModal] = useState(false);
-  const [teamEmployees, setTeamEmployees] = useState<any[]>([]);
-  const [newEmpName, setNewEmpName] = useState("");
-  const [newEmpEmail, setNewEmpEmail] = useState("");
-  const [newEmpDept, setNewEmpDept] = useState("AG");
-  const [newEmpRole, setNewEmpRole] = useState("EMP");
   const [showPingsModal, setShowPingsModal] = useState(false);
   const [showLicenseModal, setShowLicenseModal] = useState(false);
   const [showDeptModal, setShowDeptModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showBlockerModal, setShowBlockerModal] = useState<string | null>(null);
+  const [showTeamModal, setShowTeamModal] = useState(false);
+  const [activeTaskComments, setActiveTaskComments] = useState<Task | null>(null);
   
+  // Data lists
+  const [teamEmployees, setTeamEmployees] = useState<any[]>([]);
+  const [commentsList, setCommentsList] = useState<any[]>([]);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [autoDispatchMsg, setAutoDispatchMsg] = useState<string | null>(null);
+
   // Form Inputs
+  const [newEmpName, setNewEmpName] = useState('');
+  const [newEmpEmail, setNewEmpEmail] = useState('');
+  const [newEmpDept, setNewEmpDept] = useState('AG');
+  const [newEmpRole, setNewEmpRole] = useState('EMP');
+
   const [newDeptId, setNewDeptId] = useState('');
   const [newDeptName, setNewDeptName] = useState('');
   const [blockerText, setBlockerText] = useState('');
@@ -108,65 +113,7 @@ export default function App() {
   const [newTaskPriority, setNewTaskPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'>('HIGH');
   const [newTaskUrgent, setNewTaskUrgent] = useState(false);
   const [rawCsvText, setRawCsvText] = useState('');
-  const [activeTaskForComments, setActiveTaskForComments] = useState<Task | null>(null);
-  const [taskComments, setTaskComments] = useState<any[]>([]);
-  const [newCommentText, setNewCommentText] = useState('');
-  const [autoDispatchStatus, setAutoDispatchStatus] = useState<string | null>(null);
 
-  const fetchComments = async (taskId: string) => {
-    try {
-      const res = await fetch(`${API_GATEWAY}/v1/tasks/${taskId}/comments`, {
-        headers: { "X-Employee-ID": employeeId }
-      });
-      const data = await res.json();
-      setTaskComments(data.comments || []);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handlePostComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeTaskForComments || !newCommentText.trim()) return;
-
-    try {
-      await fetch(`${API_GATEWAY}/v1/tasks/${activeTaskForComments.task_id}/comments`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Employee-ID": employeeId
-        },
-        body: JSON.stringify({ content: newCommentText.trim() })
-      });
-      setNewCommentText('');
-      fetchComments(activeTaskForComments.task_id);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleAutoDispatch = async () => {
-    setAutoDispatchStatus("Querying department backlog...");
-    try {
-      const res = await fetch(`${API_GATEWAY}/v1/tasks/auto-dispatch`, {
-        method: "POST",
-        headers: { "X-Employee-ID": employeeId }
-      });
-      const data = await res.json();
-      if (data.status === "DISPATCHED") {
-        setAutoDispatchStatus(`Dispatched: ${data.task.title}`);
-        fetchTasksAndTelemetry();
-      } else {
-        setAutoDispatchStatus(data.message || "No tasks available.");
-      }
-      setTimeout(() => setAutoDispatchStatus(null), 4000);
-    } catch (e) {
-      setAutoDispatchStatus("Dispatch failed.");
-    }
-  };
-
-
-  // 1. Fetch Dynamic Departments from Edge
   const fetchDepartments = async () => {
     try {
       const res = await fetch(`${API_GATEWAY}/v1/departments`, {
@@ -180,11 +127,10 @@ export default function App() {
         }
       }
     } catch (err) {
-      console.error("Departments Fetch Error", err);
+      console.error(err);
     }
   };
 
-  // 2. Fetch Tasks, Telemetry & Digest
   const fetchTasksAndTelemetry = async () => {
     setLoading(true);
     try {
@@ -198,21 +144,18 @@ export default function App() {
         setIsAdmin(data.role === 'ADMIN');
       }
 
-      // Fetch Pings
       const pingRes = await fetch(`${API_GATEWAY}/v1/notifications/ping`, {
         headers: { "X-Employee-ID": employeeId }
       });
       const pingData = await pingRes.json();
       if (pingData.notifications) setUnreadPings(pingData.notifications);
 
-      // Fetch Tenant Stats
       const statsRes = await fetch(`${API_GATEWAY}/v1/tenants/stats`, {
         headers: { "X-Employee-ID": employeeId }
       });
       const statsData = await statsRes.json();
       if (statsData.tenant_id) setTenantStats(statsData);
 
-      // Fetch Digest
       if (data.role === 'ADMIN' || data.role === 'DEPT_HEAD') {
         const digRes = await fetch(`${API_GATEWAY}/v1/analytics/digest`, {
           headers: { "X-Employee-ID": employeeId }
@@ -226,6 +169,30 @@ export default function App() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTeamEmployees = async () => {
+    try {
+      const res = await fetch(`${API_GATEWAY}/v1/employees`, {
+        headers: { "X-Employee-ID": employeeId }
+      });
+      const data = await res.json();
+      if (data.employees) setTeamEmployees(data.employees);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchComments = async (taskId: string) => {
+    try {
+      const res = await fetch(`${API_GATEWAY}/v1/tasks/${taskId}/comments`, {
+        headers: { "X-Employee-ID": employeeId }
+      });
+      const data = await res.json();
+      setCommentsList(data.comments || []);
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -252,6 +219,95 @@ export default function App() {
       if (json.status === "TRANSITION_LOGGED") fetchTasksAndTelemetry();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleAcknowledgeUrgent = async (taskId: string) => {
+    try {
+      const res = await fetch(`${API_GATEWAY}/v1/tasks/acknowledge`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Employee-ID": employeeId
+        },
+        body: JSON.stringify({ taskId })
+      });
+      const json = await res.json();
+      if (json.status === "ACKNOWLEDGED") fetchTasksAndTelemetry();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAutoDispatch = async () => {
+    setAutoDispatchMsg("Searching department backlog...");
+    try {
+      const res = await fetch(`${API_GATEWAY}/v1/tasks/auto-dispatch`, {
+        method: "POST",
+        headers: { "X-Employee-ID": employeeId }
+      });
+      const data = await res.json();
+      if (data.status === "DISPATCHED") {
+        setAutoDispatchMsg(`Assigned: ${data.task.title}`);
+        fetchTasksAndTelemetry();
+      } else {
+        setAutoDispatchMsg(data.message || "Queue is clear.");
+      }
+      setTimeout(() => setAutoDispatchMsg(null), 4000);
+    } catch (err) {
+      setAutoDispatchMsg("Dispatch query failed.");
+    }
+  };
+
+  const handlePostComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeTaskComments || !newCommentText.trim()) return;
+
+    try {
+      await fetch(`${API_GATEWAY}/v1/tasks/${activeTaskComments.task_id}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Employee-ID": employeeId
+        },
+        body: JSON.stringify({ content: newCommentText.trim() })
+      });
+      setNewCommentText('');
+      fetchComments(activeTaskComments.task_id);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleRegisterEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEmpName.trim() || !newEmpEmail.trim()) return;
+
+    try {
+      const res = await fetch(`${API_GATEWAY}/v1/employees/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Employee-ID": employeeId
+        },
+        body: JSON.stringify({
+          fullName: newEmpName,
+          email: newEmpEmail,
+          deptId: newEmpDept,
+          role: newEmpRole
+        })
+      });
+      const data = await res.json();
+      if (data.status === "EMPLOYEE_REGISTERED") {
+        setNewEmpName("");
+        setNewEmpEmail("");
+        fetchTeamEmployees();
+        fetchTasksAndTelemetry();
+      } else {
+        alert(data.message || "Registration failed.");
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -296,79 +352,6 @@ export default function App() {
     }
   };
 
-  const handleActivateLicense = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!licenseTokenInput.trim()) return;
-
-    try {
-      const res = await fetch(`${API_GATEWAY}/v1/tenants/license`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Employee-ID": employeeId
-        },
-        body: JSON.stringify({ licenseToken: licenseTokenInput.trim() })
-      });
-      const json = await res.json();
-      if (json.status === "LICENSE_ACTIVATED") {
-        setLicenseStatusMsg(`Tier upgraded: ${json.tier} (${json.max_seats} Seats)!`);
-        setTimeout(() => {
-          setShowLicenseModal(false);
-          setLicenseStatusMsg('');
-          fetchTasksAndTelemetry();
-        }, 2000);
-      } else {
-        setLicenseStatusMsg(json.message || "Activation Failed.");
-      }
-    } catch (err) {
-      setLicenseStatusMsg("Connection Error.");
-    }
-  };
-
-  const fetchTeamEmployees = async () => {
-    try {
-      const res = await fetch(`${API_GATEWAY}/v1/employees`, {
-        headers: { "X-Employee-ID": employeeId }
-      });
-      const data = await res.json();
-      if (data.employees) setTeamEmployees(data.employees);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleRegisterEmployee = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newEmpName.trim() || !newEmpEmail.trim()) return;
-
-    try {
-      const res = await fetch(`${API_GATEWAY}/v1/employees/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Employee-ID": employeeId
-        },
-        body: JSON.stringify({
-          fullName: newEmpName,
-          email: newEmpEmail,
-          deptId: newEmpDept,
-          role: newEmpRole
-        })
-      });
-      const data = await res.json();
-      if (data.status === "EMPLOYEE_REGISTERED") {
-        setNewEmpName("");
-        setNewEmpEmail("");
-        fetchTeamEmployees();
-        fetchTasksAndTelemetry();
-      } else {
-        alert(data.message || "Registration failed.");
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   const handleAssignSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
@@ -383,7 +366,7 @@ export default function App() {
         body: JSON.stringify({
           title: newTaskTitle,
           assignedTo: newTaskAssignee || employeeId,
-          deptId: newTaskDept || (departments[0]?.dept_id || "OPERATIONS"),
+          deptId: newTaskDept || (departments[0]?.dept_id || "GENERAL"),
           priority: newTaskPriority,
           isUrgent: newTaskUrgent
         })
@@ -409,7 +392,7 @@ export default function App() {
       return {
         title: title || "Untitled Task",
         assignedTo: assignedTo || employeeId,
-        deptId: deptId || (departments[0]?.dept_id || "OPERATIONS"),
+        deptId: deptId || (departments[0]?.dept_id || "GENERAL"),
         priority: (priority as any) || "MEDIUM",
         isUrgent: isUrgent === "true" || isUrgent === "1"
       };
@@ -477,7 +460,6 @@ export default function App() {
             </button>
           </div>
 
-          {/* Dynamic Controls Header */}
           <div className="flex flex-wrap items-center justify-end gap-2.5 w-full md:w-auto text-xs font-mono">
             {tenantStats && (
               <div className="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800/90 shadow-sm">
@@ -497,14 +479,13 @@ export default function App() {
               </div>
             )}
 
-            {/* Dynamic Department Filter */}
             {isAdmin && (
               <div className="flex items-center space-x-1.5 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800 shadow-sm">
                 <Filter className="w-3.5 h-3.5 text-slate-400" />
                 <select 
                   value={selectedDept}
                   onChange={(e) => setSelectedDept(e.target.value)}
-                  className="bg-slate-900 text-slate-100 font-semibold focus:outline-none cursor-pointer max-w-[160px] truncate"
+                  className="bg-slate-900 text-slate-100 font-semibold focus:outline-none cursor-pointer max-w-[150px] truncate"
                 >
                   <option value="ALL">All Departments</option>
                   {departments.map(d => (
@@ -521,10 +502,9 @@ export default function App() {
               </div>
             )}
 
-            {/* Workspace & Role Access Button */}
             <button
               onClick={() => setShowLoginModal(true)}
-              className="bg-slate-900 hover:bg-slate-850 border border-slate-800 rounded-xl px-3 py-1.5 flex items-center space-x-2 shadow-sm text-emerald-400 font-bold cursor-pointer transition-colors"
+              className="bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl px-3 py-1.5 flex items-center space-x-2 shadow-sm text-emerald-400 font-bold cursor-pointer transition-colors"
             >
               <UserCheck className="w-3.5 h-3.5 text-blue-400" />
               <span>{employeeId}</span>
@@ -614,6 +594,21 @@ export default function App() {
           </div>
 
           <div className="flex items-center space-x-3 w-full sm:w-auto justify-between sm:justify-end font-mono text-xs">
+            {/* Free Employee Auto-Dispatch Button */}
+            {!isAdmin && progressTasks.length === 0 && (
+              <button
+                onClick={handleAutoDispatch}
+                className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 animate-pulse"
+              >
+                <Zap className="w-4 h-4 text-amber-300" />
+                <span>Auto-Dispatch Next Task</span>
+              </button>
+            )}
+
+            {autoDispatchMsg && (
+              <span className="text-emerald-400 text-xs font-bold font-mono">{autoDispatchMsg}</span>
+            )}
+
             <div className="bg-slate-900 p-1 rounded-xl border border-slate-800 flex items-center space-x-1 shadow-sm">
               <button
                 onClick={() => setViewMode('board')}
@@ -639,7 +634,7 @@ export default function App() {
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setShowAssignModal(true)}
-                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5"
+                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Assign</span>
@@ -647,15 +642,19 @@ export default function App() {
                 
                 <button
                   onClick={() => setShowCsvModal(true)}
-                  className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
+                  className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
                   <span>CSV</span>
                 </button>
 
+                {/* ACTIVE TEAM DIRECTORY BUTTON */}
                 <button
-                  onClick={() => { setShowTeamModal(true); fetchTeamEmployees(); }}
-                  className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
+                  onClick={() => {
+                    setShowTeamModal(true);
+                    fetchTeamEmployees();
+                  }}
+                  className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <Users className="w-4 h-4 text-sky-400" />
                   <span>Team</span>
@@ -665,11 +664,11 @@ export default function App() {
           </div>
         </div>
 
-        {/* 1. EQUAL-HEIGHT BALANCED KANBAN VIEW */}
+        {/* 1. EQUAL-HEIGHT KANBAN BOARD */}
         {viewMode === 'board' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
             
-            {/* COLUMN 1: URGENT ASSIGNING */}
+            {/* URGENT ASSIGNING */}
             <div className="bg-slate-900/60 border border-rose-500/30 rounded-2xl p-4 flex flex-col h-[580px] shadow-lg">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800 shrink-0">
                 <span className="font-mono text-xs font-bold text-rose-400 flex items-center gap-1.5 uppercase">
@@ -686,17 +685,26 @@ export default function App() {
                   <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-rose-500/20 space-y-2 hover:border-rose-500/40 transition-all shadow-md">
                     <div className="flex items-center justify-between text-[10px] font-mono">
                       <span className="text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
+                      {task.source === 'JIRA' && (
+                        <span className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20">Jira</span>
+                      )}
                       <span className="text-rose-400 font-bold uppercase">{task.priority}</span>
                     </div>
                     <h4 className="text-xs font-bold text-white leading-snug">{task.title}</h4>
                     <div className="text-[10px] font-mono text-slate-400 truncate">Assignee: {task.assigned_to}</div>
                     <div className="pt-2 flex items-center justify-between border-t border-slate-900">
                       <button 
-                        onClick={() => handleStatusChange(task.task_id, 'PROGRESS')}
-                        className="text-[11px] font-mono text-blue-400 hover:text-blue-300 font-bold inline-flex items-center gap-1"
+                        onClick={() => handleAcknowledgeUrgent(task.task_id)}
+                        className="text-[11px] font-mono text-rose-400 hover:text-rose-300 font-bold inline-flex items-center gap-1"
                       >
-                        <span>Start Task</span>
-                        <span>&rarr;</span>
+                        <span>Accept &amp; Start &rarr;</span>
+                      </button>
+                      <button
+                        onClick={() => { setActiveTaskComments(task); fetchComments(task.task_id); }}
+                        className="text-slate-400 hover:text-slate-200"
+                        title="View Feedback / Comments"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -705,7 +713,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* COLUMN 2: TASK PROGRESS */}
+            {/* TASK PROGRESS */}
             <div className="bg-slate-900/60 border border-blue-500/30 rounded-2xl p-4 flex flex-col h-[580px] shadow-lg">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800 shrink-0">
                 <span className="font-mono text-xs font-bold text-blue-400 flex items-center gap-1.5 uppercase">
@@ -722,17 +730,29 @@ export default function App() {
                   <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-blue-500/20 space-y-2 hover:border-blue-500/40 transition-all shadow-md">
                     <div className="flex items-center justify-between text-[10px] font-mono">
                       <span className="text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
+                      {task.source === 'JIRA' && (
+                        <span className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20">Jira</span>
+                      )}
                       <span className="text-blue-400 font-bold">{task.priority}</span>
                     </div>
                     <h4 className="text-xs font-bold text-white leading-snug">{task.title}</h4>
                     <div className="text-[10px] font-mono text-slate-400 truncate">Assignee: {task.assigned_to}</div>
                     <div className="pt-2 flex items-center justify-between border-t border-slate-900">
-                      <button 
-                        onClick={() => setShowBlockerModal(task.task_id)}
-                        className="text-[11px] font-mono text-amber-400 hover:text-amber-300"
-                      >
-                        Flag Blocker
-                      </button>
+                      <div className="flex items-center space-x-2">
+                        <button 
+                          onClick={() => setShowBlockerModal(task.task_id)}
+                          className="text-[11px] font-mono text-amber-400 hover:text-amber-300"
+                        >
+                          Flag Blocker
+                        </button>
+                        <button
+                          onClick={() => { setActiveTaskComments(task); fetchComments(task.task_id); }}
+                          className="text-slate-400 hover:text-slate-200"
+                          title="View Feedback / Comments"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                       <button 
                         onClick={() => handleStatusChange(task.task_id, 'COMPLETE')}
                         className="text-[11px] font-mono text-emerald-400 hover:text-emerald-300 font-bold inline-flex items-center gap-1"
@@ -746,7 +766,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* COLUMN 3: PENDING REVIEW */}
+            {/* PENDING REVIEW */}
             <div className="bg-slate-900/60 border border-amber-500/30 rounded-2xl p-4 flex flex-col h-[580px] shadow-lg">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800 shrink-0">
                 <span className="font-mono text-xs font-bold text-amber-400 flex items-center gap-1.5 uppercase">
@@ -763,6 +783,9 @@ export default function App() {
                   <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-amber-500/20 space-y-2 hover:border-amber-500/40 transition-all shadow-md">
                     <div className="flex items-center justify-between text-[10px] font-mono">
                       <span className="text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
+                      {task.source === 'JIRA' && (
+                        <span className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20">Jira</span>
+                      )}
                       <span className="text-slate-400">{task.priority}</span>
                     </div>
                     <h4 className="text-xs font-bold text-slate-300 leading-snug">{task.title}</h4>
@@ -774,6 +797,13 @@ export default function App() {
                       >
                         <span>Resume &rarr;</span>
                       </button>
+                      <button
+                        onClick={() => { setActiveTaskComments(task); fetchComments(task.task_id); }}
+                        className="text-slate-400 hover:text-slate-200"
+                        title="View Feedback / Comments"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -781,7 +811,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* COLUMN 4: FINISHED TASK */}
+            {/* FINISHED TASK */}
             <div className="bg-slate-900/60 border border-emerald-500/30 rounded-2xl p-4 flex flex-col h-[580px] shadow-lg">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800 shrink-0">
                 <span className="font-mono text-xs font-bold text-emerald-400 flex items-center gap-1.5 uppercase">
@@ -798,6 +828,9 @@ export default function App() {
                   <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-emerald-500/20 space-y-2 opacity-85 hover:opacity-100 transition-all shadow-md">
                     <div className="flex items-center justify-between text-[10px] font-mono">
                       <span className="text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
+                      {task.source === 'JIRA' && (
+                        <span className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20">Jira</span>
+                      )}
                       <span className="text-emerald-400 font-bold">COMPLETED</span>
                     </div>
                     <h4 className="text-xs font-medium text-slate-400 line-through leading-snug">{task.title}</h4>
@@ -849,7 +882,10 @@ export default function App() {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-slate-300 font-bold">{task.priority}</td>
-                      <td className="py-3 px-4 text-white font-sans text-xs font-semibold">{task.title}</td>
+                      <td className="py-3 px-4 text-white font-sans text-xs font-semibold">
+                        {task.source === 'JIRA' && <span className="mr-1.5 px-1 bg-sky-500/20 text-sky-300 rounded font-mono text-[10px]">Jira</span>}
+                        {task.title}
+                      </td>
                       <td className="py-3 px-4 text-slate-400">{task.dept_id}</td>
                       <td className="py-3 px-4 text-slate-400 truncate max-w-[140px]">{task.assigned_to}</td>
                       <td className="py-3 px-4 text-right space-x-2">
@@ -871,28 +907,21 @@ export default function App() {
                         )}
                         {task.status === 'URGENT' && (
                           <button
-                            onClick={() => handleStatusChange(task.task_id, 'PROGRESS')}
+                            onClick={() => handleAcknowledgeUrgent(task.task_id)}
                             className="text-rose-400 hover:text-rose-300 font-bold"
                           >
                             Start &rarr;
                           </button>
                         )}
-                        {task.status === 'COMPLETE' && (
-                          <button
-                            onClick={() => handleStatusChange(task.task_id, 'PROGRESS')}
-                            className="text-slate-400 hover:text-slate-200 underline text-[11px]"
-                          >
-                            Reopen
-                          </button>
-                        )}
+                        <button
+                          onClick={() => { setActiveTaskComments(task); fetchComments(task.task_id); }}
+                          className="text-slate-400 hover:text-white"
+                        >
+                          Comments
+                        </button>
                       </td>
                     </tr>
                   ))}
-                  {tasks.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="py-12 text-center text-slate-500 italic">No tasks found.</td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
@@ -901,7 +930,184 @@ export default function App() {
 
       </main>
 
-      {/* MODAL 1: WORKSPACE IDENTITY & TENANT LOGIN */}
+      {/* MODAL 1: TEAM DIRECTORY & PROVISIONING */}
+      {showTeamModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-5 font-mono text-xs shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2 text-sky-400">
+                <Users className="w-5 h-5" />
+                <h3 className="font-bold text-white text-sm">Enterprise Team Directory &amp; Provisioning</h3>
+              </div>
+              <button onClick={() => setShowTeamModal(false)} className="text-slate-500 hover:text-white text-base">✕</button>
+            </div>
+
+            <form onSubmit={handleRegisterEmployee} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+              <span className="font-bold text-white block">Provision New Team Member:</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  placeholder="Full Name (e.g. Sarah Connor)"
+                  value={newEmpName}
+                  onChange={(e) => setNewEmpName(e.target.value)}
+                  className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-sans text-xs"
+                  required
+                />
+                <input
+                  type="email"
+                  placeholder="Corporate Email (e.g. sarah@enterprise.com)"
+                  value={newEmpEmail}
+                  onChange={(e) => setNewEmpEmail(e.target.value)}
+                  className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-sans text-xs"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <select
+                  value={newEmpDept}
+                  onChange={(e) => setNewEmpDept(e.target.value)}
+                  className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white"
+                >
+                  {departments.map(d => (
+                    <option key={d.dept_id} value={d.dept_id}>{d.dept_name}</option>
+                  ))}
+                </select>
+                <select
+                  value={newEmpRole}
+                  onChange={(e) => setNewEmpRole(e.target.value)}
+                  className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-white"
+                >
+                  <option value="EMP">Employee</option>
+                  <option value="DEPT_HEAD">Department Head</option>
+                  <option value="ADM">Administrator</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-md cursor-pointer"
+              >
+                Provision Employee ID &amp; Secure Key
+              </button>
+            </form>
+
+            <div className="space-y-2">
+              <span className="font-bold text-slate-300 block">Registered Employees:</span>
+              <div className="max-h-52 overflow-y-auto custom-scrollbar border border-slate-800 rounded-xl">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold sticky top-0">
+                    <tr>
+                      <th className="py-2.5 px-3">Name</th>
+                      <th className="py-2.5 px-3">Secure ID</th>
+                      <th className="py-2.5 px-3">Dept</th>
+                      <th className="py-2.5 px-3">Role</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/80">
+                    {teamEmployees.map(emp => (
+                      <tr key={emp.employee_id} className="hover:bg-slate-800/30">
+                        <td className="py-2 px-3 font-sans text-white">{emp.full_name}</td>
+                        <td className="py-2 px-3 text-emerald-400 select-all font-mono">{emp.employee_id}</td>
+                        <td className="py-2 px-3 text-slate-400">{emp.dept_id}</td>
+                        <td className="py-2 px-3 text-sky-400 font-bold">{emp.role}</td>
+                      </tr>
+                    ))}
+                    {teamEmployees.length === 0 && (
+                      <tr><td colSpan={4} className="py-6 text-center text-slate-500 italic">No employees found.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: THREADED COMMENTS & SUPERVISOR FEEDBACK */}
+      {activeTaskComments && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="font-bold text-white text-sm">Feedback &amp; Status Review</h3>
+                <span className="text-[11px] text-sky-400 font-sans">{activeTaskComments.title}</span>
+              </div>
+              <button onClick={() => setActiveTaskComments(null)} className="text-slate-500 hover:text-white text-base">✕</button>
+            </div>
+
+            <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar p-1">
+              {commentsList.map(c => (
+                <div key={c.comment_id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-emerald-400 font-bold">{c.author_id} ({c.author_role})</span>
+                    <span className="text-slate-500">{new Date(c.created_at).toLocaleTimeString()}</span>
+                  </div>
+                  <p className="text-slate-200 font-sans text-xs">{c.content}</p>
+                </div>
+              ))}
+              {commentsList.length === 0 && (
+                <p className="text-slate-500 italic text-center py-6">No comments posted yet.</p>
+              )}
+            </div>
+
+            <form onSubmit={handlePostComment} className="flex gap-2 pt-2 border-t border-slate-800">
+              <input
+                type="text"
+                placeholder="Post review note or supervisor feedback..."
+                value={newCommentText}
+                onChange={(e) => setNewCommentText(e.target.value)}
+                className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-sans text-xs focus:outline-none focus:border-blue-500"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-md cursor-pointer"
+              >
+                Send
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: PING NOTIFICATION DRAWER */}
+      {showPingsModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2 text-amber-400">
+                <Bell className="w-4 h-4" />
+                <h3 className="font-bold text-white text-sm">Active Ping Notices ({unreadPings.length})</h3>
+              </div>
+              <button onClick={() => setShowPingsModal(false)} className="text-slate-500 hover:text-white text-base">✕</button>
+            </div>
+
+            <div className="space-y-2.5 max-h-80 overflow-y-auto custom-scrollbar">
+              {unreadPings.map(ping => (
+                <div key={ping.notification_id} className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-rose-400 font-bold text-[10px]">{ping.type}</span>
+                    <span className="text-slate-500 text-[10px]">{new Date(ping.created_at).toLocaleTimeString()}</span>
+                  </div>
+                  <h4 className="text-xs font-bold text-white">{ping.title}</h4>
+                  <p className="text-[11px] text-slate-300 leading-relaxed font-sans">{ping.message}</p>
+                  <div className="pt-2 text-right">
+                    <button
+                      onClick={() => handleAcknowledgePing(ping.notification_id)}
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] font-bold"
+                    >
+                      Mark as Read ✓
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {unreadPings.length === 0 && (
+                <p className="text-slate-500 italic text-center py-6">All pings acknowledged.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: WORKSPACE IDENTITY & TENANT LOGIN */}
       {showLoginModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -913,11 +1119,11 @@ export default function App() {
               <button onClick={() => setShowLoginModal(false)} className="text-slate-500 hover:text-white">✕</button>
             </div>
             <p className="text-slate-400 text-[11px] leading-relaxed">
-              Enter any global Organization ID or Employee ID (Format: <code>TENANT-DEPT-ROLE-CHECKSUM</code> or <code>ETMAGJUMR62</code>):
+              Enter any Organization ID or Employee ID (Format: <code>TENANT-DEPT-ROLE-CHECKSUM</code> or <code>ETMAGJUMR62</code>):
             </p>
             <input
               type="text"
-              placeholder="e.g. ALPHA-ENG-ADM-99 or ETMAGJUMR62"
+              placeholder="e.g. ALPHA-ENG-ADM-01 or ETMAGJUMR62"
               value={customIdInput}
               onChange={(e) => setCustomIdInput(e.target.value.toUpperCase())}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono"
@@ -953,7 +1159,7 @@ export default function App() {
                 setShowLoginModal(false);
                 setCustomIdInput('');
               }}
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-md"
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-md cursor-pointer"
             >
               Mount Workspace Session
             </button>
@@ -961,7 +1167,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 2: ADD CUSTOM DEPARTMENT */}
+      {/* MODAL 5: ADD CUSTOM DEPARTMENT */}
       {showDeptModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <form onSubmit={handleAddDepartment} className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -994,7 +1200,7 @@ export default function App() {
             </div>
             <button
               type="submit"
-              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-md"
+              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-md cursor-pointer"
             >
               Add Department to Organization
             </button>
@@ -1002,90 +1208,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 3: PING NOTIFICATION DRAWER */}
-      {showPingsModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center space-x-2 text-amber-400">
-                <Bell className="w-4 h-4" />
-                <h3 className="font-bold text-white text-sm">Active Ping Notices ({unreadPings.length})</h3>
-              </div>
-              <button onClick={() => setShowPingsModal(false)} className="text-slate-500 hover:text-white">✕</button>
-            </div>
-
-            <div className="space-y-2.5 max-h-80 overflow-y-auto custom-scrollbar">
-              {unreadPings.map(ping => (
-                <div key={ping.notification_id} className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-rose-400 font-bold text-[10px]">{ping.type}</span>
-                    <span className="text-slate-500 text-[10px]">{new Date(ping.created_at).toLocaleTimeString()}</span>
-                  </div>
-                  <h4 className="text-xs font-bold text-white">{ping.title}</h4>
-                  <p className="text-[11px] text-slate-300 leading-relaxed font-sans">{ping.message}</p>
-                  <div className="pt-2 text-right">
-                    <button
-                      onClick={() => handleAcknowledgePing(ping.notification_id)}
-                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] font-bold"
-                    >
-                      Mark as Read ✓
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {unreadPings.length === 0 && (
-                <p className="text-slate-500 italic text-center py-6">All pings acknowledged.</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 4: LICENSE ACTIVATION (SME 10-Seat Upgrade) */}
-      {showLicenseModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <form onSubmit={handleActivateLicense} className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <div className="flex items-center space-x-2 text-sky-400">
-                <Key className="w-4 h-4" />
-                <h3 className="font-bold text-white text-sm">Activate Enterprise License Token</h3>
-              </div>
-              <button type="button" onClick={() => setShowLicenseModal(false)} className="text-slate-500 hover:text-white">✕</button>
-            </div>
-            <p className="text-slate-400 text-[11px] leading-relaxed">
-              Unlock unlimited corporate seats (&gt;10 seats) by entering your cryptographic SEOSiri License Key:
-            </p>
-            <input
-              type="text"
-              placeholder="e.g. PRO_US_company_1818241500_..."
-              value={licenseTokenInput}
-              onChange={(e) => setLicenseTokenInput(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono"
-            />
-            {licenseStatusMsg && (
-              <p className="text-emerald-400 text-[11px] font-bold">{licenseStatusMsg}</p>
-            )}
-            <div className="flex items-center justify-between pt-2">
-              <a 
-                href="https://developers.seosiri.com/#key-issuer" 
-                target="_blank" 
-                rel="noreferrer"
-                className="text-slate-400 hover:underline text-[10px]"
-              >
-                Purchase via Payoneer &rarr;
-              </a>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-md transition-all"
-              >
-                Activate Token
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* MODAL 5: SINGLE TASK ASSIGNMENT */}
+      {/* MODAL 6: SINGLE TASK ASSIGNMENT */}
       {showAssignModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <form onSubmit={handleAssignSubmit} className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -1100,7 +1223,7 @@ export default function App() {
                 value={newTaskTitle} 
                 onChange={(e) => setNewTaskTitle(e.target.value)} 
                 placeholder="e.g. Audit Q4 Compliance Report"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-sans text-xs"
               />
             </div>
             <div>
@@ -1110,7 +1233,7 @@ export default function App() {
                 value={newTaskAssignee} 
                 onChange={(e) => setNewTaskAssignee(e.target.value)} 
                 placeholder="Leave blank to assign to self"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono text-xs"
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -1150,7 +1273,7 @@ export default function App() {
             </label>
             <button 
               type="submit" 
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-md"
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-md cursor-pointer"
             >
               Inject Task into Pipeline
             </button>
@@ -1158,12 +1281,12 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 6: BULK CSV INGESTION */}
+      {/* MODAL 7: BULK CSV INGESTION */}
       {showCsvModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <h3 className="text-sm font-bold text-white">Bulk CSV / Spreadsheet Ingestion</h3>
+              <h3 className="text-sm font-bold text-white">Bulk CSV Ingestion</h3>
               <button onClick={() => setShowCsvModal(false)} className="text-slate-500 hover:text-white">✕</button>
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
@@ -1173,12 +1296,12 @@ export default function App() {
               rows={6}
               value={rawCsvText}
               onChange={(e) => setRawCsvText(e.target.value)}
-              placeholder="title,assignedTo,deptId,priority,isUrgent&#10;Audit ISO Compliance,EMP_01,OPERATIONS,HIGH,true&#10;Verify Treasury Records,EMP_02,FINANCE,MEDIUM,false"
+              placeholder="title,assignedTo,deptId,priority,isUrgent&#10;Audit ISO Compliance,ETM-AG-EMP-R62,AG,HIGH,true&#10;Verify Treasury Records,ETM-AG-EMP-R62,AG,MEDIUM,false"
               className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-blue-500 font-mono text-[11px]"
             />
             <button
               onClick={handleBulkCsvSubmit}
-              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-md"
+              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-md cursor-pointer"
             >
               Execute Ingestion Batch
             </button>
@@ -1186,12 +1309,12 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 7: REPORT BLOCKER */}
+      {/* MODAL 8: REPORT BLOCKER */}
       {showBlockerModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <h3 className="text-sm font-bold text-amber-400">Flag Blocker on Task</h3>
+              <h3 className="text-sm font-bold text-amber-400">Flag Dependency Blocker</h3>
               <button onClick={() => setShowBlockerModal(null)} className="text-slate-500 hover:text-white">✕</button>
             </div>
             <textarea
@@ -1207,7 +1330,7 @@ export default function App() {
                 setShowBlockerModal(null);
                 setBlockerText('');
               }}
-              className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl transition-all shadow-md"
+              className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl transition-all shadow-md cursor-pointer"
             >
               Escalate Blocker Notice to Management
             </button>
@@ -1215,7 +1338,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Universal Footer */}
+      {/* Footer */}
       <footer className="border-t border-slate-900 bg-slate-950 px-6 py-4 text-center font-mono text-[11px] text-slate-500">
         &copy; {new Date().getFullYear()} SEOSiri Enterprise Labs • Tasks Sentinel Global Infrastructure
       </footer>
