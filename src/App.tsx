@@ -1052,7 +1052,20 @@ export default function App() {
                 <h3 className="font-bold text-white text-sm">Feedback &amp; Status Review</h3>
                 <span className="text-[11px] text-sky-400 font-sans">{activeTaskComments.title}</span>
               </div>
-              <button onClick={() => setActiveTaskComments(null)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
+              <div className="flex items-center space-x-2">
+                {activeTaskComments.status !== "COMPLETE" && (
+                  <button
+                    onClick={() => {
+                      handleStatusChange(activeTaskComments.task_id, "COMPLETE");
+                      setActiveTaskComments(null);
+                    }}
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[11px] transition-all cursor-pointer"
+                  >
+                    Finish Task Now ✓
+                  </button>
+                )}
+                <button onClick={() => setActiveTaskComments(null)} className="text-slate-500 hover:text-white text-base cursor-pointer p-1">✕</button>
+              </div>
             </div>
 
             <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar p-1">
