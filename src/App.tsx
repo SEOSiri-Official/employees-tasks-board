@@ -23,7 +23,8 @@ import {
   Users,
   MessageSquare,
   Zap,
-  ExternalLink
+  ExternalLink,
+  ChevronDown
 } from 'lucide-react';
 
 const API_GATEWAY = "https://tasks.seosiri.com";
@@ -90,11 +91,12 @@ export default function App() {
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [activeTaskComments, setActiveTaskComments] = useState<Task | null>(null);
   
-  // Data lists
+  // Data lists & feedback
   const [teamEmployees, setTeamEmployees] = useState<any[]>([]);
   const [commentsList, setCommentsList] = useState<any[]>([]);
   const [newCommentText, setNewCommentText] = useState('');
   const [autoDispatchMsg, setAutoDispatchMsg] = useState<string | null>(null);
+  const [provisionSuccessMsg, setProvisionSuccessMsg] = useState<string | null>(null);
 
   // Form Inputs
   const [newEmpName, setNewEmpName] = useState('');
@@ -240,7 +242,7 @@ export default function App() {
   };
 
   const handleAutoDispatch = async () => {
-    setAutoDispatchMsg("Searching department backlog...");
+    setAutoDispatchMsg("Balancing queue & pulling task...");
     try {
       const res = await fetch(`${API_GATEWAY}/v1/tasks/auto-dispatch`, {
         method: "POST",
@@ -248,14 +250,14 @@ export default function App() {
       });
       const data = await res.json();
       if (data.status === "DISPATCHED") {
-        setAutoDispatchMsg(`Assigned: ${data.task.title}`);
+        setAutoDispatchMsg(`⚡ Auto-Assigned: ${data.task.title}`);
         fetchTasksAndTelemetry();
       } else {
-        setAutoDispatchMsg(data.message || "Queue is clear.");
+        setAutoDispatchMsg(data.message || "No pending tasks in queue.");
       }
       setTimeout(() => setAutoDispatchMsg(null), 4000);
     } catch (err) {
-      setAutoDispatchMsg("Dispatch query failed.");
+      setAutoDispatchMsg("Auto-dispatch request failed.");
     }
   };
 
@@ -291,23 +293,26 @@ export default function App() {
           "X-Employee-ID": employeeId
         },
         body: JSON.stringify({
-          fullName: newEmpName,
-          email: newEmpEmail,
+          fullName: newEmpName.trim(),
+          email: newEmpEmail.trim(),
           deptId: newEmpDept,
           role: newEmpRole
         })
       });
       const data = await res.json();
       if (data.status === "EMPLOYEE_REGISTERED") {
+        setProvisionSuccessMsg(`Provisioned: ${data.employee_id}`);
         setNewEmpName("");
         setNewEmpEmail("");
         fetchTeamEmployees();
         fetchTasksAndTelemetry();
+        setTimeout(() => setProvisionSuccessMsg(null), 5000);
       } else {
         alert(data.message || "Registration failed.");
       }
     } catch (e) {
       console.error(e);
+      alert("Network error provisioning employee.");
     }
   };
 
@@ -479,6 +484,7 @@ export default function App() {
               </div>
             )}
 
+            {/* Department Filter */}
             {isAdmin && (
               <div className="flex items-center space-x-1.5 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800 shadow-sm">
                 <Filter className="w-3.5 h-3.5 text-slate-400" />
@@ -502,14 +508,25 @@ export default function App() {
               </div>
             )}
 
-            <button
-              onClick={() => setShowLoginModal(true)}
-              className="bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl px-3 py-1.5 flex items-center space-x-2 shadow-sm text-emerald-400 font-bold cursor-pointer transition-colors"
-            >
-              <UserCheck className="w-3.5 h-3.5 text-blue-400" />
-              <span>{employeeId}</span>
-              <span className="text-[10px] text-slate-500 font-normal">({isAdmin ? 'Admin' : 'Personal'})</span>
-            </button>
+            {/* Interactive Identity Switcher Selector */}
+            <div className="relative bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 flex items-center space-x-1.5 shadow-sm">
+              <UserCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <select
+                value={employeeId}
+                onChange={(e) => {
+                  if (e.target.value === 'CUSTOM') {
+                    setShowLoginModal(true);
+                  } else {
+                    setEmployeeId(e.target.value);
+                  }
+                }}
+                className="bg-slate-900 text-emerald-400 font-bold font-mono focus:outline-none cursor-pointer pr-1"
+              >
+                <option value="ETMAGJUMR62">ETMAGJUMR62 (Admin)</option>
+                <option value="ETM-AG-EMP-R62">ETM-AG-EMP-R62 (Personal)</option>
+                <option value="CUSTOM">Switch Workspace...</option>
+              </select>
+            </div>
 
             <button
               onClick={() => { fetchDepartments(); fetchTasksAndTelemetry(); }}
@@ -582,31 +599,30 @@ export default function App() {
           </div>
         )}
 
-        {/* Action Header */}
+        {/* Action Toolbar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-1">
           <div>
             <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
-              {isAdmin ? "Enterprise Task Stream" : "My Assigned Work"}
+              {isAdmin ? "Enterprise Task Stream" : "My Assigned Work (Personal Queue)"}
             </h2>
             <p className="text-xs text-slate-400 font-mono">
-              {isAdmin ? `Cross-department execution board for ${tenantStats?.company_name || 'Organization'}.` : "Personal zero-trust task queue and focus lane."}
+              {isAdmin ? `Cross-department execution board for ${tenantStats?.company_name || 'Organization'}.` : `Personal zero-trust task focus queue for ${employeeId}.`}
             </p>
           </div>
 
-          <div className="flex items-center space-x-3 w-full sm:w-auto justify-between sm:justify-end font-mono text-xs">
-            {/* Free Employee Auto-Dispatch Button */}
-            {!isAdmin && progressTasks.length === 0 && (
-              <button
-                onClick={handleAutoDispatch}
-                className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 animate-pulse"
-              >
-                <Zap className="w-4 h-4 text-amber-300" />
-                <span>Auto-Dispatch Next Task</span>
-              </button>
-            )}
+          <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto font-mono text-xs">
+            {/* Autonomous Auto-Dispatch Button */}
+            <button
+              onClick={handleAutoDispatch}
+              className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Automatically pull and assign next pending task from department queue"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-300" />
+              <span>Auto-Dispatch ⚡</span>
+            </button>
 
             {autoDispatchMsg && (
-              <span className="text-emerald-400 text-xs font-bold font-mono">{autoDispatchMsg}</span>
+              <span className="text-emerald-400 text-xs font-bold font-mono bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">{autoDispatchMsg}</span>
             )}
 
             <div className="bg-slate-900 p-1 rounded-xl border border-slate-800 flex items-center space-x-1 shadow-sm">
@@ -648,7 +664,6 @@ export default function App() {
                   <span>CSV</span>
                 </button>
 
-                {/* ACTIVE TEAM DIRECTORY BUTTON */}
                 <button
                   onClick={() => {
                     setShowTeamModal(true);
@@ -692,19 +707,19 @@ export default function App() {
                     </div>
                     <h4 className="text-xs font-bold text-white leading-snug">{task.title}</h4>
                     <div className="text-[10px] font-mono text-slate-400 truncate">Assignee: {task.assigned_to}</div>
-                    <div className="pt-2 flex items-center justify-between border-t border-slate-900">
+                    <div className="pt-2 flex items-center justify-between border-t border-slate-900 text-xs font-mono">
                       <button 
                         onClick={() => handleAcknowledgeUrgent(task.task_id)}
-                        className="text-[11px] font-mono text-rose-400 hover:text-rose-300 font-bold inline-flex items-center gap-1"
+                        className="text-rose-400 hover:text-rose-300 font-bold inline-flex items-center gap-1 cursor-pointer"
                       >
                         <span>Accept &amp; Start &rarr;</span>
                       </button>
                       <button
                         onClick={() => { setActiveTaskComments(task); fetchComments(task.task_id); }}
-                        className="text-slate-400 hover:text-slate-200"
-                        title="View Feedback / Comments"
+                        className="px-2 py-1 bg-slate-900 hover:bg-slate-850 text-slate-300 rounded-lg border border-slate-800 flex items-center gap-1 cursor-pointer text-[11px]"
                       >
-                        <MessageSquare className="w-3.5 h-3.5" />
+                        <MessageSquare className="w-3 h-3 text-sky-400" />
+                        <span>Chat</span>
                       </button>
                     </div>
                   </div>
@@ -737,25 +752,25 @@ export default function App() {
                     </div>
                     <h4 className="text-xs font-bold text-white leading-snug">{task.title}</h4>
                     <div className="text-[10px] font-mono text-slate-400 truncate">Assignee: {task.assigned_to}</div>
-                    <div className="pt-2 flex items-center justify-between border-t border-slate-900">
+                    <div className="pt-2 flex items-center justify-between border-t border-slate-900 text-xs font-mono">
                       <div className="flex items-center space-x-2">
                         <button 
                           onClick={() => setShowBlockerModal(task.task_id)}
-                          className="text-[11px] font-mono text-amber-400 hover:text-amber-300"
+                          className="text-[11px] text-amber-400 hover:text-amber-300 cursor-pointer"
                         >
-                          Flag Blocker
+                          Blocker
                         </button>
                         <button
                           onClick={() => { setActiveTaskComments(task); fetchComments(task.task_id); }}
-                          className="text-slate-400 hover:text-slate-200"
-                          title="View Feedback / Comments"
+                          className="px-2 py-0.5 bg-slate-900 hover:bg-slate-850 text-slate-300 rounded border border-slate-800 flex items-center gap-1 cursor-pointer text-[10px]"
                         >
-                          <MessageSquare className="w-3.5 h-3.5" />
+                          <MessageSquare className="w-3 h-3 text-sky-400" />
+                          <span>Chat</span>
                         </button>
                       </div>
                       <button 
                         onClick={() => handleStatusChange(task.task_id, 'COMPLETE')}
-                        className="text-[11px] font-mono text-emerald-400 hover:text-emerald-300 font-bold inline-flex items-center gap-1"
+                        className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold inline-flex items-center gap-1 cursor-pointer"
                       >
                         <span>Finish ✓</span>
                       </button>
@@ -790,19 +805,19 @@ export default function App() {
                     </div>
                     <h4 className="text-xs font-bold text-slate-300 leading-snug">{task.title}</h4>
                     <div className="text-[10px] font-mono text-slate-400 truncate">Assignee: {task.assigned_to}</div>
-                    <div className="pt-2 flex items-center justify-between border-t border-slate-900">
+                    <div className="pt-2 flex items-center justify-between border-t border-slate-900 text-xs font-mono">
                       <button 
                         onClick={() => handleStatusChange(task.task_id, 'PROGRESS')}
-                        className="text-[11px] font-mono text-blue-400 hover:text-blue-300 font-bold inline-flex items-center gap-1"
+                        className="text-[11px] text-blue-400 hover:text-blue-300 font-bold inline-flex items-center gap-1 cursor-pointer"
                       >
                         <span>Resume &rarr;</span>
                       </button>
                       <button
                         onClick={() => { setActiveTaskComments(task); fetchComments(task.task_id); }}
-                        className="text-slate-400 hover:text-slate-200"
-                        title="View Feedback / Comments"
+                        className="px-2 py-0.5 bg-slate-900 hover:bg-slate-850 text-slate-300 rounded border border-slate-800 flex items-center gap-1 cursor-pointer text-[10px]"
                       >
-                        <MessageSquare className="w-3.5 h-3.5" />
+                        <MessageSquare className="w-3 h-3 text-sky-400" />
+                        <span>Chat</span>
                       </button>
                     </div>
                   </div>
@@ -838,7 +853,7 @@ export default function App() {
                       <span>By: {task.assigned_to}</span>
                       <button 
                         onClick={() => handleStatusChange(task.task_id, 'PROGRESS')}
-                        className="text-slate-400 hover:text-slate-200 underline inline-flex items-center gap-0.5"
+                        className="text-slate-400 hover:text-slate-200 underline inline-flex items-center gap-0.5 cursor-pointer"
                       >
                         <RotateCcw className="w-3 h-3" />
                         <span>Reopen</span>
@@ -892,7 +907,7 @@ export default function App() {
                         {task.status === 'PROGRESS' && (
                           <button
                             onClick={() => handleStatusChange(task.task_id, 'COMPLETE')}
-                            className="text-emerald-400 hover:text-emerald-300 font-bold"
+                            className="text-emerald-400 hover:text-emerald-300 font-bold cursor-pointer"
                           >
                             Finish ✓
                           </button>
@@ -900,7 +915,7 @@ export default function App() {
                         {task.status === 'PENDING' && (
                           <button
                             onClick={() => handleStatusChange(task.task_id, 'PROGRESS')}
-                            className="text-blue-400 hover:text-blue-300 font-bold"
+                            className="text-blue-400 hover:text-blue-300 font-bold cursor-pointer"
                           >
                             Resume &rarr;
                           </button>
@@ -908,16 +923,16 @@ export default function App() {
                         {task.status === 'URGENT' && (
                           <button
                             onClick={() => handleAcknowledgeUrgent(task.task_id)}
-                            className="text-rose-400 hover:text-rose-300 font-bold"
+                            className="text-rose-400 hover:text-rose-300 font-bold cursor-pointer"
                           >
                             Start &rarr;
                           </button>
                         )}
                         <button
                           onClick={() => { setActiveTaskComments(task); fetchComments(task.task_id); }}
-                          className="text-slate-400 hover:text-white"
+                          className="text-sky-400 hover:text-sky-300 cursor-pointer"
                         >
-                          Comments
+                          Chat
                         </button>
                       </td>
                     </tr>
@@ -939,8 +954,14 @@ export default function App() {
                 <Users className="w-5 h-5" />
                 <h3 className="font-bold text-white text-sm">Enterprise Team Directory &amp; Provisioning</h3>
               </div>
-              <button onClick={() => setShowTeamModal(false)} className="text-slate-500 hover:text-white text-base">✕</button>
+              <button onClick={() => setShowTeamModal(false)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
             </div>
+
+            {provisionSuccessMsg && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 font-bold text-center">
+                ✓ {provisionSuccessMsg}
+              </div>
+            )}
 
             <form onSubmit={handleRegisterEmployee} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
               <span className="font-bold text-white block">Provision New Team Member:</span>
@@ -984,7 +1005,7 @@ export default function App() {
               </div>
               <button
                 type="submit"
-                className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-md cursor-pointer"
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-md cursor-pointer"
               >
                 Provision Employee ID &amp; Secure Key
               </button>
@@ -1031,7 +1052,7 @@ export default function App() {
                 <h3 className="font-bold text-white text-sm">Feedback &amp; Status Review</h3>
                 <span className="text-[11px] text-sky-400 font-sans">{activeTaskComments.title}</span>
               </div>
-              <button onClick={() => setActiveTaskComments(null)} className="text-slate-500 hover:text-white text-base">✕</button>
+              <button onClick={() => setActiveTaskComments(null)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
             </div>
 
             <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar p-1">
@@ -1077,7 +1098,7 @@ export default function App() {
                 <Bell className="w-4 h-4" />
                 <h3 className="font-bold text-white text-sm">Active Ping Notices ({unreadPings.length})</h3>
               </div>
-              <button onClick={() => setShowPingsModal(false)} className="text-slate-500 hover:text-white text-base">✕</button>
+              <button onClick={() => setShowPingsModal(false)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
             </div>
 
             <div className="space-y-2.5 max-h-80 overflow-y-auto custom-scrollbar">
@@ -1092,7 +1113,7 @@ export default function App() {
                   <div className="pt-2 text-right">
                     <button
                       onClick={() => handleAcknowledgePing(ping.notification_id)}
-                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] font-bold"
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[10px] font-bold cursor-pointer"
                     >
                       Mark as Read ✓
                     </button>
@@ -1116,7 +1137,7 @@ export default function App() {
                 <Building2 className="w-4 h-4 text-blue-400" />
                 <span>Switch Enterprise Workspace</span>
               </h3>
-              <button onClick={() => setShowLoginModal(false)} className="text-slate-500 hover:text-white">✕</button>
+              <button onClick={() => setShowLoginModal(false)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
             </div>
             <p className="text-slate-400 text-[11px] leading-relaxed">
               Enter any Organization ID or Employee ID (Format: <code>TENANT-DEPT-ROLE-CHECKSUM</code> or <code>ETMAGJUMR62</code>):
@@ -1134,21 +1155,21 @@ export default function App() {
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => { setEmployeeId("ETMAGJUMR62"); setShowLoginModal(false); }}
-                  className="px-2.5 py-1 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded text-emerald-400 text-[10px]"
+                  className="px-2.5 py-1 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded text-emerald-400 text-[10px] cursor-pointer"
                 >
                   ETM Admin
                 </button>
                 <button
                   onClick={() => { setEmployeeId("ETM-AG-EMP-R62"); setShowLoginModal(false); }}
-                  className="px-2.5 py-1 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded text-sky-400 text-[10px]"
+                  className="px-2.5 py-1 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded text-sky-400 text-[10px] cursor-pointer"
                 >
-                  ETM Employee
+                  ETM Personal
                 </button>
                 <button
                   onClick={() => { setEmployeeId("ALPHA-OPS-ADM-01"); setShowLoginModal(false); }}
-                  className="px-2.5 py-1 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded text-amber-400 text-[10px]"
+                  className="px-2.5 py-1 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded text-amber-400 text-[10px] cursor-pointer"
                 >
-                  Alpha Corp Admin
+                  Alpha Admin
                 </button>
               </div>
             </div>
@@ -1176,7 +1197,7 @@ export default function App() {
                 <FolderPlus className="w-4 h-4 text-emerald-400" />
                 <span>Create Custom Department</span>
               </h3>
-              <button type="button" onClick={() => setShowDeptModal(false)} className="text-slate-500 hover:text-white">✕</button>
+              <button type="button" onClick={() => setShowDeptModal(false)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
             </div>
             <div>
               <label className="block text-slate-400 mb-1">Department Code (ID):</label>
@@ -1214,7 +1235,7 @@ export default function App() {
           <form onSubmit={handleAssignSubmit} className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <h3 className="text-sm font-bold text-white">Assign Task</h3>
-              <button type="button" onClick={() => setShowAssignModal(false)} className="text-slate-500 hover:text-white">✕</button>
+              <button type="button" onClick={() => setShowAssignModal(false)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
             </div>
             <div>
               <label className="block text-slate-400 mb-1">Task Title:</label>
@@ -1287,7 +1308,7 @@ export default function App() {
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <h3 className="text-sm font-bold text-white">Bulk CSV Ingestion</h3>
-              <button onClick={() => setShowCsvModal(false)} className="text-slate-500 hover:text-white">✕</button>
+              <button onClick={() => setShowCsvModal(false)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
               Format: <code>title,assignedTo,deptId,priority,isUrgent</code>
@@ -1315,7 +1336,7 @@ export default function App() {
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <h3 className="text-sm font-bold text-amber-400">Flag Dependency Blocker</h3>
-              <button onClick={() => setShowBlockerModal(null)} className="text-slate-500 hover:text-white">✕</button>
+              <button onClick={() => setShowBlockerModal(null)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
             </div>
             <textarea
               rows={3}
@@ -1335,6 +1356,50 @@ export default function App() {
               Escalate Blocker Notice to Management
             </button>
           </div>
+        </div>
+      )}
+
+      {/* MODAL 9: LICENSE ACTIVATION */}
+      {showLicenseModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <form onSubmit={() => {}} className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div className="flex items-center space-x-2 text-sky-400">
+                <Key className="w-4 h-4" />
+                <h3 className="font-bold text-white text-sm">Activate Enterprise License Token</h3>
+              </div>
+              <button type="button" onClick={() => setShowLicenseModal(false)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
+            </div>
+            <p className="text-slate-400 text-[11px] leading-relaxed">
+              Unlock unlimited corporate seats (&gt;10 seats) by entering your cryptographic SEOSiri License Key:
+            </p>
+            <input
+              type="text"
+              placeholder="e.g. PRO_US_company_1818241500_..."
+              value={licenseTokenInput}
+              onChange={(e) => setLicenseTokenInput(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono"
+            />
+            {licenseStatusMsg && (
+              <p className="text-emerald-400 text-[11px] font-bold">{licenseStatusMsg}</p>
+            )}
+            <div className="flex items-center justify-between pt-2">
+              <a 
+                href="https://developers.seosiri.com/#key-issuer" 
+                target="_blank" 
+                rel="noreferrer"
+                className="text-slate-400 hover:underline text-[10px]"
+              >
+                Purchase via Payoneer &rarr;
+              </a>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer"
+              >
+                Activate Token
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
