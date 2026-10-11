@@ -95,6 +95,7 @@ export default function App() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showBlockerModal, setShowBlockerModal] = useState<string | null>(null);
   const [showTeamModal, setShowTeamModal] = useState(false);
+  const [showJiraModal, setShowJiraModal] = useState(false);
   const [showKpiModal, setShowKpiModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [activeTaskComments, setActiveTaskComments] = useState<Task | null>(null);
@@ -759,6 +760,16 @@ export default function App() {
                 >
                   <Award className="w-4 h-4 text-amber-400" />
                   <span>KPIs</span>
+                </button>
+
+                {/* Jira Sync Status Button */}
+                <button
+                  onClick={() => setShowJiraModal(true)}
+                  className="px-3 py-2 bg-slate-900 hover:bg-slate-850 text-sky-400 border border-slate-800 rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  title="View Jira Cloud Integration & Webhook Sync"
+                >
+                  <ExternalLink className="w-4 h-4 text-sky-400" />
+                  <span>Jira Sync</span>
                 </button>
               </div>
             )}
@@ -1698,6 +1709,85 @@ export default function App() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      
+      {/* MODAL: JIRA INTEGRATION & TWO-WAY SYNC */}
+      {showJiraModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-5 font-mono text-xs shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2 text-sky-400">
+                <ExternalLink className="w-5 h-5 text-sky-400" />
+                <h3 className="font-bold text-white text-sm">Atlassian Jira Cloud Bi-Directional Bridge</h3>
+              </div>
+              <button onClick={() => setShowJiraModal(false)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+              <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Connected Atlassian Domain</span>
+                <strong className="text-white text-xs block truncate">one-atlas-jkdr.atlassian.net</strong>
+                <span className="text-[10px] text-emerald-400 font-bold">&bull; Active Project: SCO</span>
+              </div>
+              <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1">
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Bi-Directional Status</span>
+                <strong className="text-emerald-400 text-xs block">LISTENING &amp; RESOLVING</strong>
+                <span className="text-[10px] text-slate-400">Inbound Webhook + Outbound Transition</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5 text-left">
+              <span className="text-slate-300 font-bold block">Inbound Jira Webhook Endpoint:</span>
+              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-emerald-400 select-all font-mono text-[11px] break-all">
+                https://tasks.seosiri.com/v1/webhooks/jira?tenant=ETM
+              </div>
+              <p className="text-[10px] text-slate-500">
+                Configure this URL in Jira Settings &rarr; System &rarr; Webhooks (Events: Issue Created, Updated).
+              </p>
+            </div>
+
+            <div className="space-y-2 text-left">
+              <span className="text-slate-300 font-bold block">Active Synced Jira Tasks in Pipeline:</span>
+              <div className="max-h-40 overflow-y-auto custom-scrollbar border border-slate-800 rounded-xl">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold sticky top-0">
+                    <tr>
+                      <th className="py-2 px-3">Issue Key</th>
+                      <th className="py-2 px-3">Summary</th>
+                      <th className="py-2 px-3">Status</th>
+                      <th className="py-2 px-3 text-right">Atlassian Link</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/80">
+                    {tasks.filter(t => t.source === "JIRA" || t.title.includes("[Jira")).map(t => {
+                      const match = t.title.match(/\[Jira\s+([A-Z0-9]+-\d+)\]/i);
+                      const key = match ? match[1].toUpperCase() : t.task_id;
+                      return (
+                        <tr key={t.task_id} className="hover:bg-slate-800/30">
+                          <td className="py-2 px-3 font-bold text-sky-400">{key}</td>
+                          <td className="py-2 px-3 text-slate-300 font-sans truncate max-w-[200px]">{t.title.replace(/\[Jira[^\]]+\]\s*/, "")}</td>
+                          <td className="py-2 px-3 font-bold text-[10px] text-emerald-400">{t.status}</td>
+                          <td className="py-2 px-3 text-right">
+                            <a
+                              href={`https://one-atlas-jkdr.atlassian.net/browse/${key}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-sky-400 hover:underline text-[10px] inline-flex items-center gap-0.5"
+                            >
+                              <span>Open</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
