@@ -1795,7 +1795,7 @@ export default function App() {
                           <td className="py-2 px-3 font-bold text-[10px] text-emerald-400">{t.status}</td>
                           <td className="py-2 px-3 text-right">
                             <a
-                              href={`https://${tenantJiraDomain}/browse/${key}`}
+                              href={`https://${tenantJiraDomain}/browse/${key}`} target="_blank" rel="noopener noreferrer" 
                               target="_blank"
                               rel="noreferrer"
                               className="text-sky-400 hover:underline text-[10px] inline-flex items-center gap-0.5"
