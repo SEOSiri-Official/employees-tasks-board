@@ -30,7 +30,7 @@ import {
 } from 'lucide-react';
 
 const API_GATEWAY = "https://tasks.seosiri.com";
-const JIRA_BASE_URL = "https://one-atlas-jkdr.atlassian.net/browse";
+const DEFAULT_JIRA_DOMAIN = "one-atlas-jkdr.atlassian.net";
 
 interface Task {
   task_id: string;
@@ -74,6 +74,10 @@ interface TenantStats {
 export default function App() {
   const [employeeId, setEmployeeId] = useState('ETMAGJUMR62');
   const [customIdInput, setCustomIdInput] = useState('');
+  const [tenantJiraDomain, setTenantJiraDomain] = useState(() => {
+    return localStorage.getItem('seosiri_jira_domain') || "one-atlas-jkdr.atlassian.net";
+  });
+  const [jiraDomainSavedMsg, setJiraDomainSavedMsg] = useState(false);
   const [isAdmin, setIsAdmin] = useState(true);
   
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -803,7 +807,7 @@ export default function App() {
                           <span className="text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
                           {jiraKey ? (
                             <a
-                              href={`${JIRA_BASE_URL}/${jiraKey}`}
+                              href={`https://${tenantJiraDomain}/browse/${jiraKey}`}
                               target="_blank"
                               rel="noreferrer"
                               className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/30 hover:underline flex items-center gap-0.5"
@@ -867,7 +871,7 @@ export default function App() {
                           <span className="text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
                           {jiraKey ? (
                             <a
-                              href={`${JIRA_BASE_URL}/${jiraKey}`}
+                              href={`https://${tenantJiraDomain}/browse/${jiraKey}`}
                               target="_blank"
                               rel="noreferrer"
                               className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/30 hover:underline flex items-center gap-0.5"
@@ -939,7 +943,7 @@ export default function App() {
                           <span className="text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
                           {jiraKey ? (
                             <a
-                              href={`${JIRA_BASE_URL}/${jiraKey}`}
+                              href={`https://${tenantJiraDomain}/browse/${jiraKey}`}
                               target="_blank"
                               rel="noreferrer"
                               className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/30 hover:underline flex items-center gap-0.5"
@@ -1080,7 +1084,7 @@ export default function App() {
                         <td className="py-3 px-4 text-white font-sans text-xs font-semibold">
                           {jiraKey ? (
                             <a
-                              href={`${JIRA_BASE_URL}/${jiraKey}`}
+                              href={`https://${tenantJiraDomain}/browse/${jiraKey}`}
                               target="_blank"
                               rel="noreferrer"
                               className="mr-1.5 px-1 bg-sky-500/20 text-sky-300 rounded font-mono text-[10px] hover:underline inline-flex items-center gap-0.5"
@@ -1726,10 +1730,30 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
-              <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1">
-                <span className="text-[10px] text-slate-500 uppercase font-bold block">Connected Atlassian Domain</span>
-                <strong className="text-white text-xs block truncate">one-atlas-jkdr.atlassian.net</strong>
-                <span className="text-[10px] text-emerald-400 font-bold">&bull; Active Project: SCO</span>
+              <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Target Jira Cloud Domain</span>
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    value={tenantJiraDomain}
+                    onChange={(e) => setTenantJiraDomain(e.target.value.trim())}
+                    placeholder="e.g. company.atlassian.net"
+                    className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white font-mono text-xs flex-1 focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    onClick={() => {
+                      localStorage.setItem('seosiri_jira_domain', tenantJiraDomain);
+                      setJiraDomainSavedMsg(true);
+                      setTimeout(() => setJiraDomainSavedMsg(false), 2500);
+                    }}
+                    className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-[10px] cursor-pointer"
+                  >
+                    {jiraDomainSavedMsg ? "Saved ✓" : "Save"}
+                  </button>
+                </div>
+                <span className="text-[10px] text-slate-400 block font-mono">
+                  Points cards to: <code>https://{tenantJiraDomain}/browse/...</code>
+                </span>
               </div>
               <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1">
                 <span className="text-[10px] text-slate-500 uppercase font-bold block">Bi-Directional Status</span>
@@ -1771,7 +1795,7 @@ export default function App() {
                           <td className="py-2 px-3 font-bold text-[10px] text-emerald-400">{t.status}</td>
                           <td className="py-2 px-3 text-right">
                             <a
-                              href={`https://one-atlas-jkdr.atlassian.net/browse/${key}`}
+                              href={`https://${tenantJiraDomain}/browse/${key}`}
                               target="_blank"
                               rel="noreferrer"
                               className="text-sky-400 hover:underline text-[10px] inline-flex items-center gap-0.5"
