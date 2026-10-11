@@ -807,7 +807,7 @@ export default function App() {
                           <span className="text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
                           {jiraKey ? (
                             <a
-                              href={`https://${tenantJiraDomain}/browse/${jiraKey}`} target=\"_blank\" rel=\"noreferrer\" className=\"text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/30 hover:underline flex items-center gap-0.5\"
+                              href={`https://${tenantJiraDomain}/browse/${jiraKey}`} target="_blank" rel="noreferrer" className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/30 hover:underline flex items-center gap-0.5"
                             >
                               <span>{jiraKey}</span>
                               <ExternalLink className="w-2.5 h-2.5" />
@@ -868,7 +868,7 @@ export default function App() {
                           <span className="text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
                           {jiraKey ? (
                             <a
-                              href={`https://${tenantJiraDomain}/browse/${jiraKey}`} target=\"_blank\" rel=\"noreferrer\" className=\"text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/30 hover:underline flex items-center gap-0.5\"
+                              href={`https://${tenantJiraDomain}/browse/${jiraKey}`} target="_blank" rel="noreferrer" className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/30 hover:underline flex items-center gap-0.5"
                             >
                               <span>{jiraKey}</span>
                               <ExternalLink className="w-2.5 h-2.5" />
@@ -937,7 +937,7 @@ export default function App() {
                           <span className="text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
                           {jiraKey ? (
                             <a
-                              href={`https://${tenantJiraDomain}/browse/${jiraKey}`} target=\"_blank\" rel=\"noreferrer\" className=\"text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/30 hover:underline flex items-center gap-0.5\"
+                              href={`https://${tenantJiraDomain}/browse/${jiraKey}`} target="_blank" rel="noreferrer" className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/30 hover:underline flex items-center gap-0.5"
                             >
                               <span>{jiraKey}</span>
                               <ExternalLink className="w-2.5 h-2.5" />
@@ -1786,7 +1786,7 @@ export default function App() {
                           <td className="py-2 px-3 font-bold text-[10px] text-emerald-400">{t.status}</td>
                           <td className="py-2 px-3 text-right">
                             <a
-                              href={`https://${tenantJiraDomain}/browse/${key}`} target=\"_blank\" rel=\"noreferrer\" className=\"text-sky-400 hover:underline text-[10px] inline-flex items-center gap-0.5\"
+                              href={`https://${tenantJiraDomain}/browse/${key}`} target="_blank" rel="noreferrer" className="text-sky-400 hover:underline text-[10px] inline-flex items-center gap-0.5"
                             >
                               <span>Open</span>
                               <ExternalLink className="w-2.5 h-2.5" />
