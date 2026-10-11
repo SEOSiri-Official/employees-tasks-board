@@ -24,10 +24,13 @@ import {
   MessageSquare,
   Zap,
   ExternalLink,
-  ChevronDown
+  Archive,
+  Award,
+  Star
 } from 'lucide-react';
 
 const API_GATEWAY = "https://tasks.seosiri.com";
+const JIRA_BASE_URL = "https://one-atlas-jkdr.atlassian.net/browse";
 
 interface Task {
   task_id: string;
@@ -36,10 +39,11 @@ interface Task {
   assigned_to: string;
   title: string;
   description: string;
-  status: 'URGENT' | 'PROGRESS' | 'PENDING' | 'COMPLETE';
+  status: 'URGENT' | 'PROGRESS' | 'PENDING' | 'COMPLETE' | 'ARCHIVED';
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   source: string;
   created_at: string;
+  updated_at: string;
 }
 
 interface Department {
@@ -91,10 +95,14 @@ export default function App() {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showBlockerModal, setShowBlockerModal] = useState<string | null>(null);
   const [showTeamModal, setShowTeamModal] = useState(false);
+  const [showKpiModal, setShowKpiModal] = useState(false);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [activeTaskComments, setActiveTaskComments] = useState<Task | null>(null);
   
   // Data lists & feedback
   const [teamEmployees, setTeamEmployees] = useState<any[]>([]);
+  const [kpiMatrix, setKpiMatrix] = useState<any[]>([]);
+  const [archivedTasks, setArchivedTasks] = useState<Task[]>([]);
   const [commentsList, setCommentsList] = useState<any[]>([]);
   const [newCommentText, setNewCommentText] = useState('');
   const [autoDispatchMsg, setAutoDispatchMsg] = useState<string | null>(null);
@@ -132,6 +140,47 @@ export default function App() {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const fetchTeamEmployees = async () => {
+    try {
+      const res = await fetch(`${API_GATEWAY}/v1/employees`, {
+        headers: { "X-Employee-ID": employeeId }
+      });
+      const data = await res.json();
+      if (data.employees) {
+        setTeamEmployees(data.employees);
+        if (data.employees.length > 0 && !newTaskAssignee) {
+          setNewTaskAssignee(data.employees[0].employee_id);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchKpiMatrix = async () => {
+    try {
+      const res = await fetch(`${API_GATEWAY}/v1/analytics/kpi`, {
+        headers: { "X-Employee-ID": employeeId }
+      });
+      const data = await res.json();
+      if (data.kpiMatrix) setKpiMatrix(data.kpiMatrix);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchArchivedTasks = async () => {
+    try {
+      const res = await fetch(`${API_GATEWAY}/v1/tasks/archived`, {
+        headers: { "X-Employee-ID": employeeId }
+      });
+      const data = await res.json();
+      if (data.tasks) setArchivedTasks(data.tasks);
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -176,18 +225,6 @@ export default function App() {
     }
   };
 
-  const fetchTeamEmployees = async () => {
-    try {
-      const res = await fetch(`${API_GATEWAY}/v1/employees`, {
-        headers: { "X-Employee-ID": employeeId }
-      });
-      const data = await res.json();
-      if (data.employees) setTeamEmployees(data.employees);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   const fetchComments = async (taskId: string) => {
     try {
       const res = await fetch(`${API_GATEWAY}/v1/tasks/${taskId}/comments`, {
@@ -202,6 +239,7 @@ export default function App() {
 
   useEffect(() => {
     fetchDepartments();
+    fetchTeamEmployees();
     fetchTasksAndTelemetry();
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') fetchTasksAndTelemetry();
@@ -221,6 +259,22 @@ export default function App() {
       });
       const json = await res.json();
       if (json.status === "TRANSITION_LOGGED") fetchTasksAndTelemetry();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleArchiveTask = async (taskId?: string) => {
+    try {
+      await fetch(`${API_GATEWAY}/v1/tasks/archive`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Employee-ID": employeeId
+        },
+        body: JSON.stringify({ taskId })
+      });
+      fetchTasksAndTelemetry();
     } catch (err) {
       console.error(err);
     }
@@ -255,11 +309,11 @@ export default function App() {
         setAutoDispatchMsg(`⚡ Auto-Assigned: ${data.task.title}`);
         fetchTasksAndTelemetry();
       } else {
-        setAutoDispatchMsg(data.message || "No pending tasks in queue.");
+        setAutoDispatchMsg(data.message || "Queue is clean.");
       }
       setTimeout(() => setAutoDispatchMsg(null), 4000);
     } catch (err) {
-      setAutoDispatchMsg("Auto-dispatch request failed.");
+      setAutoDispatchMsg("Auto-dispatch failed.");
     }
   };
 
@@ -314,7 +368,6 @@ export default function App() {
       }
     } catch (e) {
       console.error(e);
-      alert("Network error provisioning employee.");
     }
   };
 
@@ -382,7 +435,6 @@ export default function App() {
       if (data.status === "ASSIGNED") {
         setShowAssignModal(false);
         setNewTaskTitle('');
-        setNewTaskAssignee('');
         fetchTasksAndTelemetry();
       }
     } catch (err) {
@@ -425,17 +477,15 @@ export default function App() {
     }
   };
 
-  // Performance Recognition Index Calculator (Executive KPI Standard)
-  const getEmployeePerformance = (empId: string) => {
-    const assignedTasks = tasks.filter(t => t.assigned_to === empId);
-    if (assignedTasks.length === 0) return { score: "100%", completed: 0, total: 0, badge: "READY" };
-    const doneCount = assignedTasks.filter(t => t.status === "COMPLETE").length;
-    const scoreVal = Math.round((doneCount / assignedTasks.length) * 100);
-    let badge = "NORMAL";
-    if (scoreVal >= 80) badge = "TOP PERFORMER";
-    else if (scoreVal >= 50) badge = "ON TRACK";
-    else badge = "NEEDS FOCUS";
-    return { score: `${scoreVal}%`, completed: doneCount, total: assignedTasks.length, badge };
+  const formatTaskDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const getJiraKeyFromTitle = (title: string) => {
+    const match = title.match(/\[Jira\s+([A-Z0-9]+-\d+)\]/i);
+    return match ? match[1].toUpperCase() : null;
   };
 
   const urgentTasks = tasks.filter(t => t.status === 'URGENT');
@@ -523,7 +573,7 @@ export default function App() {
               </div>
             )}
 
-            {/* Interactive Identity Switcher Selector */}
+            {/* Interactive Identity Switcher */}
             <div className="relative bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5 flex items-center space-x-1.5 shadow-sm">
               <UserCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
               <select
@@ -568,7 +618,7 @@ export default function App() {
                 <span>Executive Department Velocity Digest</span>
               </span>
               <span className="text-xs font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
-                Completion Velocity: {digest.completion_velocity}
+                Velocity: {digest.completion_velocity}
               </span>
             </div>
             
@@ -594,8 +644,8 @@ export default function App() {
                 <strong className="text-lg text-rose-400 font-bold">{digest.blockers_reported}</strong>
               </div>
               <div className="bg-slate-950/90 p-2.5 rounded-xl border border-sky-500/20 shadow-sm">
-                <span className="text-[9px] text-sky-400 uppercase block font-semibold">AVG TAT (HOURS)</span>
-                <strong className="text-lg text-sky-300 font-bold">{digest.avg_tat_hours || "0.45"}h</strong>
+                <span className="text-[9px] text-sky-400 uppercase block font-semibold">AVG TAT</span>
+                <strong className="text-lg text-sky-300 font-bold">{digest.avg_tat_hours || "0.45h"}</strong>
               </div>
               <div className="bg-slate-950/90 p-2.5 rounded-xl border border-emerald-500/20 shadow-sm">
                 <span className="text-[9px] text-emerald-400 uppercase block font-semibold">SLA COMPLIANCE</span>
@@ -633,11 +683,11 @@ export default function App() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto font-mono text-xs">
-            {/* Autonomous Auto-Dispatch Button */}
+          <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 w-full sm:w-auto font-mono text-xs">
+            {/* Auto-Dispatch Button */}
             <button
               onClick={handleAutoDispatch}
-              className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
               title="Automatically pull and assign next pending task from department queue"
             >
               <Zap className="w-3.5 h-3.5 text-amber-300" />
@@ -645,7 +695,7 @@ export default function App() {
             </button>
 
             {autoDispatchMsg && (
-              <span className="text-emerald-400 text-xs font-bold font-mono bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">{autoDispatchMsg}</span>
+              <span className="text-emerald-400 text-xs font-bold font-mono bg-emerald-500/10 px-2 py-1 rounded-lg border border-emerald-500/20">{autoDispatchMsg}</span>
             )}
 
             <div className="bg-slate-900 p-1 rounded-xl border border-slate-800 flex items-center space-x-1 shadow-sm">
@@ -681,7 +731,7 @@ export default function App() {
                 
                 <button
                   onClick={() => setShowCsvModal(true)}
-                  className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  className="px-3 py-2 bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
                   <span>CSV</span>
@@ -692,17 +742,30 @@ export default function App() {
                     setShowTeamModal(true);
                     fetchTeamEmployees();
                   }}
-                  className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  className="px-3 py-2 bg-slate-900 hover:bg-slate-850 text-slate-300 border border-slate-800 rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <Users className="w-4 h-4 text-sky-400" />
                   <span>Team</span>
+                </button>
+
+                {/* KPI Metrics Matrix Button */}
+                <button
+                  onClick={() => {
+                    setShowKpiModal(true);
+                    fetchKpiMatrix();
+                  }}
+                  className="px-3 py-2 bg-slate-900 hover:bg-slate-850 text-amber-300 border border-slate-800 rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  title="View Enterprise Performance & Recognition Matrix"
+                >
+                  <Award className="w-4 h-4 text-amber-400" />
+                  <span>KPIs</span>
                 </button>
               </div>
             )}
           </div>
         </div>
 
-        {/* 1. EQUAL-HEIGHT KANBAN BOARD */}
+        {/* 1. KANBAN BOARD WITH VISIBLE TICKET IDS, TIMESTAMPS & JIRA LINKS */}
         {viewMode === 'board' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
             
@@ -719,34 +782,53 @@ export default function App() {
               </div>
               
               <div className="flex-1 overflow-y-auto space-y-2.5 pt-3 pr-1 custom-scrollbar">
-                {urgentTasks.map(task => (
-                  <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-rose-500/20 space-y-2 hover:border-rose-500/40 transition-all shadow-md">
-                    <div className="flex items-center justify-between text-[10px] font-mono">
-                      <span className="text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
-                      {task.source === 'JIRA' && (
-                        <span className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20">Jira</span>
-                      )}
-                      <span className="text-rose-400 font-bold uppercase">{task.priority}</span>
+                {urgentTasks.map(task => {
+                  const jiraKey = getJiraKeyFromTitle(task.title);
+                  return (
+                    <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-rose-500/20 space-y-2 hover:border-rose-500/40 transition-all shadow-md">
+                      <div className="flex items-center justify-between text-[10px] font-mono">
+                        <span className="text-slate-500 font-bold select-all">#{task.task_id.substring(0, 8).toUpperCase()}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
+                          {jiraKey ? (
+                            <a
+                              href={`${JIRA_BASE_URL}/${jiraKey}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/30 hover:underline flex items-center gap-0.5"
+                            >
+                              <span>{jiraKey}</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          ) : (
+                            task.source === 'JIRA' && <span className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20">Jira</span>
+                          )}
+                          <span className="text-rose-400 font-bold uppercase">{task.priority}</span>
+                        </div>
+                      </div>
+                      <h4 className="text-xs font-bold text-white leading-snug">{task.title}</h4>
+                      <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-0.5">
+                        <span className="truncate max-w-[130px]">{task.assigned_to}</span>
+                        <span className="text-slate-500">{formatTaskDate(task.created_at)}</span>
+                      </div>
+                      <div className="pt-2 flex items-center justify-between border-t border-slate-900 text-xs font-mono">
+                        <button 
+                          onClick={() => handleAcknowledgeUrgent(task.task_id)}
+                          className="text-rose-400 hover:text-rose-300 font-bold inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Accept &amp; Start &rarr;</span>
+                        </button>
+                        <button
+                          onClick={() => { setActiveTaskComments(task); fetchComments(task.task_id); }}
+                          className="px-2 py-1 bg-slate-900 hover:bg-slate-850 text-slate-300 rounded-lg border border-slate-800 flex items-center gap-1 cursor-pointer text-[11px]"
+                        >
+                          <MessageSquare className="w-3 h-3 text-sky-400" />
+                          <span>Chat</span>
+                        </button>
+                      </div>
                     </div>
-                    <h4 className="text-xs font-bold text-white leading-snug">{task.title}</h4>
-                    <div className="text-[10px] font-mono text-slate-400 truncate">Assignee: {task.assigned_to}</div>
-                    <div className="pt-2 flex items-center justify-between border-t border-slate-900 text-xs font-mono">
-                      <button 
-                        onClick={() => handleAcknowledgeUrgent(task.task_id)}
-                        className="text-rose-400 hover:text-rose-300 font-bold inline-flex items-center gap-1 cursor-pointer"
-                      >
-                        <span>Accept &amp; Start &rarr;</span>
-                      </button>
-                      <button
-                        onClick={() => { setActiveTaskComments(task); fetchComments(task.task_id); }}
-                        className="px-2 py-1 bg-slate-900 hover:bg-slate-850 text-slate-300 rounded-lg border border-slate-800 flex items-center gap-1 cursor-pointer text-[11px]"
-                      >
-                        <MessageSquare className="w-3 h-3 text-sky-400" />
-                        <span>Chat</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {urgentTasks.length === 0 && <p className="text-xs text-slate-500 italic py-16 text-center">No urgent tasks queued.</p>}
               </div>
             </div>
@@ -764,42 +846,61 @@ export default function App() {
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-2.5 pt-3 pr-1 custom-scrollbar">
-                {progressTasks.map(task => (
-                  <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-blue-500/20 space-y-2 hover:border-blue-500/40 transition-all shadow-md">
-                    <div className="flex items-center justify-between text-[10px] font-mono">
-                      <span className="text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
-                      {task.source === 'JIRA' && (
-                        <span className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20">Jira</span>
-                      )}
-                      <span className="text-blue-400 font-bold">{task.priority}</span>
-                    </div>
-                    <h4 className="text-xs font-bold text-white leading-snug">{task.title}</h4>
-                    <div className="text-[10px] font-mono text-slate-400 truncate">Assignee: {task.assigned_to}</div>
-                    <div className="pt-2 flex items-center justify-between border-t border-slate-900 text-xs font-mono">
-                      <div className="flex items-center space-x-2">
+                {progressTasks.map(task => {
+                  const jiraKey = getJiraKeyFromTitle(task.title);
+                  return (
+                    <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-blue-500/20 space-y-2 hover:border-blue-500/40 transition-all shadow-md">
+                      <div className="flex items-center justify-between text-[10px] font-mono">
+                        <span className="text-slate-500 font-bold select-all">#{task.task_id.substring(0, 8).toUpperCase()}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
+                          {jiraKey ? (
+                            <a
+                              href={`${JIRA_BASE_URL}/${jiraKey}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/30 hover:underline flex items-center gap-0.5"
+                            >
+                              <span>{jiraKey}</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          ) : (
+                            task.source === 'JIRA' && <span className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20">Jira</span>
+                          )}
+                          <span className="text-blue-400 font-bold">{task.priority}</span>
+                        </div>
+                      </div>
+                      <h4 className="text-xs font-bold text-white leading-snug">{task.title}</h4>
+                      <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-0.5">
+                        <span className="truncate max-w-[130px]">{task.assigned_to}</span>
+                        <span className="text-slate-500">{formatTaskDate(task.created_at)}</span>
+                      </div>
+                      <div className="pt-2 flex items-center justify-between border-t border-slate-900 text-xs font-mono">
+                        <div className="flex items-center space-x-2">
+                          <button 
+                            onClick={() => setShowBlockerModal(task.task_id)}
+                            className="text-[11px] text-amber-400 hover:text-amber-300 cursor-pointer"
+                          >
+                            Blocker
+                          </button>
+                          <button
+                            onClick={() => { setActiveTaskComments(task); fetchComments(task.task_id); }}
+                            className="px-2 py-0.5 bg-slate-900 hover:bg-slate-850 text-slate-300 rounded border border-slate-800 flex items-center gap-1 cursor-pointer text-[10px]"
+                          >
+                            <MessageSquare className="w-3 h-3 text-sky-400" />
+                            <span>Chat</span>
+                          </button>
+                        </div>
                         <button 
-                          onClick={() => setShowBlockerModal(task.task_id)}
-                          className="text-[11px] text-amber-400 hover:text-amber-300 cursor-pointer"
+                          onClick={() => handleStatusChange(task.task_id, 'COMPLETE')}
+                          className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold inline-flex items-center gap-1 cursor-pointer"
                         >
-                          Blocker
-                        </button>
-                        <button
-                          onClick={() => { setActiveTaskComments(task); fetchComments(task.task_id); }}
-                          className="px-2 py-0.5 bg-slate-900 hover:bg-slate-850 text-slate-300 rounded border border-slate-800 flex items-center gap-1 cursor-pointer text-[10px]"
-                        >
-                          <MessageSquare className="w-3 h-3 text-sky-400" />
-                          <span>Chat</span>
+                          <span>Finish ✓</span>
                         </button>
                       </div>
-                      <button 
-                        onClick={() => handleStatusChange(task.task_id, 'COMPLETE')}
-                        className="text-[11px] text-emerald-400 hover:text-emerald-300 font-bold inline-flex items-center gap-1 cursor-pointer"
-                      >
-                        <span>Finish ✓</span>
-                      </button>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {progressTasks.length === 0 && <p className="text-xs text-slate-500 italic py-16 text-center">No tasks in flight.</p>}
               </div>
             </div>
@@ -817,70 +918,110 @@ export default function App() {
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-2.5 pt-3 pr-1 custom-scrollbar">
-                {pendingTasks.map(task => (
-                  <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-amber-500/20 space-y-2 hover:border-amber-500/40 transition-all shadow-md">
-                    <div className="flex items-center justify-between text-[10px] font-mono">
-                      <span className="text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
-                      {task.source === 'JIRA' && (
-                        <span className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20">Jira</span>
-                      )}
-                      <span className="text-slate-400">{task.priority}</span>
+                {pendingTasks.map(task => {
+                  const jiraKey = getJiraKeyFromTitle(task.title);
+                  return (
+                    <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-amber-500/20 space-y-2 hover:border-amber-500/40 transition-all shadow-md">
+                      <div className="flex items-center justify-between text-[10px] font-mono">
+                        <span className="text-slate-500 font-bold select-all">#{task.task_id.substring(0, 8).toUpperCase()}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
+                          {jiraKey ? (
+                            <a
+                              href={`${JIRA_BASE_URL}/${jiraKey}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/30 hover:underline flex items-center gap-0.5"
+                            >
+                              <span>{jiraKey}</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          ) : (
+                            task.source === 'JIRA' && <span className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.5 rounded border border-sky-500/20">Jira</span>
+                          )}
+                          <span className="text-slate-400">{task.priority}</span>
+                        </div>
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-300 leading-snug">{task.title}</h4>
+                      <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 pt-0.5">
+                        <span className="truncate max-w-[130px]">{task.assigned_to}</span>
+                        <span className="text-slate-500">{formatTaskDate(task.created_at)}</span>
+                      </div>
+                      <div className="pt-2 flex items-center justify-between border-t border-slate-900 text-xs font-mono">
+                        <button 
+                          onClick={() => handleStatusChange(task.task_id, 'PROGRESS')}
+                          className="text-[11px] text-blue-400 hover:text-blue-300 font-bold inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Resume &rarr;</span>
+                        </button>
+                        <button
+                          onClick={() => { setActiveTaskComments(task); fetchComments(task.task_id); }}
+                          className="px-2 py-0.5 bg-slate-900 hover:bg-slate-850 text-slate-300 rounded border border-slate-800 flex items-center gap-1 cursor-pointer text-[10px]"
+                        >
+                          <MessageSquare className="w-3 h-3 text-sky-400" />
+                          <span>Chat</span>
+                        </button>
+                      </div>
                     </div>
-                    <h4 className="text-xs font-bold text-slate-300 leading-snug">{task.title}</h4>
-                    <div className="text-[10px] font-mono text-slate-400 truncate">Assignee: {task.assigned_to}</div>
-                    <div className="pt-2 flex items-center justify-between border-t border-slate-900 text-xs font-mono">
-                      <button 
-                        onClick={() => handleStatusChange(task.task_id, 'PROGRESS')}
-                        className="text-[11px] text-blue-400 hover:text-blue-300 font-bold inline-flex items-center gap-1 cursor-pointer"
-                      >
-                        <span>Resume &rarr;</span>
-                      </button>
-                      <button
-                        onClick={() => { setActiveTaskComments(task); fetchComments(task.task_id); }}
-                        className="px-2 py-0.5 bg-slate-900 hover:bg-slate-850 text-slate-300 rounded border border-slate-800 flex items-center gap-1 cursor-pointer text-[10px]"
-                      >
-                        <MessageSquare className="w-3 h-3 text-sky-400" />
-                        <span>Chat</span>
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {pendingTasks.length === 0 && <p className="text-xs text-slate-500 italic py-16 text-center">No pending tasks.</p>}
               </div>
             </div>
 
-            {/* FINISHED TASK */}
+            {/* FINISHED TASK WITH ARCHIVE ACTION */}
             <div className="bg-slate-900/60 border border-emerald-500/30 rounded-2xl p-4 flex flex-col h-[580px] shadow-lg">
               <div className="flex items-center justify-between pb-3 border-b border-slate-800 shrink-0">
-                <span className="font-mono text-xs font-bold text-emerald-400 flex items-center gap-1.5 uppercase">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                  Finished Task
-                </span>
-                <span className="text-xs font-mono bg-emerald-500/10 text-emerald-300 px-2.5 py-0.5 rounded-full font-bold border border-emerald-500/20">
-                  {completeTasks.length}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-xs font-bold text-emerald-400 flex items-center gap-1.5 uppercase">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    Finished Task
+                  </span>
+                  <span className="text-xs font-mono bg-emerald-500/10 text-emerald-300 px-2.5 py-0.5 rounded-full font-bold border border-emerald-500/20">
+                    {completeTasks.length}
+                  </span>
+                </div>
+                {completeTasks.length > 0 && (
+                  <button
+                    onClick={() => handleArchiveTask()}
+                    className="text-[10px] font-mono text-slate-400 hover:text-white flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded cursor-pointer"
+                    title="Archive all completed tasks"
+                  >
+                    <Archive className="w-3 h-3 text-slate-400" />
+                    <span>Archive All</span>
+                  </button>
+                )}
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-2.5 pt-3 pr-1 custom-scrollbar">
                 {completeTasks.map(task => (
                   <div key={task.task_id} className="bg-slate-950 p-3.5 rounded-xl border border-emerald-500/20 space-y-2 opacity-85 hover:opacity-100 transition-all shadow-md">
                     <div className="flex items-center justify-between text-[10px] font-mono">
-                      <span className="text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
-                      {task.source === 'JIRA' && (
-                        <span className="text-sky-400 font-bold bg-sky-500/10 px-1.5 py-0.2 rounded border border-sky-500/20">Jira</span>
-                      )}
-                      <span className="text-emerald-400 font-bold">COMPLETED</span>
+                      <span className="text-slate-500 font-bold select-all">#{task.task_id.substring(0, 8).toUpperCase()}</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">{task.dept_id}</span>
+                        <span className="text-emerald-400 font-bold">COMPLETED</span>
+                      </div>
                     </div>
                     <h4 className="text-xs font-medium text-slate-400 line-through leading-snug">{task.title}</h4>
                     <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 pt-1 border-t border-slate-900">
                       <span>By: {task.assigned_to}</span>
-                      <button 
-                        onClick={() => handleStatusChange(task.task_id, 'PROGRESS')}
-                        className="text-slate-400 hover:text-slate-200 underline inline-flex items-center gap-0.5 cursor-pointer"
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                        <span>Reopen</span>
-                      </button>
+                      <div className="flex items-center space-x-2">
+                        <button 
+                          onClick={() => handleStatusChange(task.task_id, 'PROGRESS')}
+                          className="text-slate-400 hover:text-slate-200 underline inline-flex items-center gap-0.5 cursor-pointer"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Reopen</span>
+                        </button>
+                        <button
+                          onClick={() => handleArchiveTask(task.task_id)}
+                          className="text-slate-500 hover:text-slate-300"
+                          title="Archive this task"
+                        >
+                          <Archive className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -898,68 +1039,87 @@ export default function App() {
               <table className="w-full text-left font-mono text-xs">
                 <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 text-[10px] uppercase font-bold tracking-wider">
                   <tr>
+                    <th className="py-3 px-4">Ticket ID</th>
                     <th className="py-3 px-4">Status</th>
                     <th className="py-3 px-4">Priority</th>
                     <th className="py-3 px-4">Task Title</th>
                     <th className="py-3 px-4">Department</th>
                     <th className="py-3 px-4">Assignee</th>
+                    <th className="py-3 px-4">Created</th>
                     <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/80">
-                  {tasks.map(task => (
-                    <tr key={task.task_id} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          task.status === 'URGENT' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30' :
-                          task.status === 'PROGRESS' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30' :
-                          task.status === 'PENDING' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
-                          'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                        }`}>
-                          {task.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-slate-300 font-bold">{task.priority}</td>
-                      <td className="py-3 px-4 text-white font-sans text-xs font-semibold">
-                        {task.source === 'JIRA' && <span className="mr-1.5 px-1 bg-sky-500/20 text-sky-300 rounded font-mono text-[10px]">Jira</span>}
-                        {task.title}
-                      </td>
-                      <td className="py-3 px-4 text-slate-400">{task.dept_id}</td>
-                      <td className="py-3 px-4 text-slate-400 truncate max-w-[140px]">{task.assigned_to}</td>
-                      <td className="py-3 px-4 text-right space-x-2">
-                        {task.status === 'PROGRESS' && (
+                  {tasks.map(task => {
+                    const jiraKey = getJiraKeyFromTitle(task.title);
+                    return (
+                      <tr key={task.task_id} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3 px-4 text-slate-500 font-bold select-all">#{task.task_id.substring(0, 8).toUpperCase()}</td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            task.status === 'URGENT' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30' :
+                            task.status === 'PROGRESS' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30' :
+                            task.status === 'PENDING' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                            'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                          }`}>
+                            {task.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-slate-300 font-bold">{task.priority}</td>
+                        <td className="py-3 px-4 text-white font-sans text-xs font-semibold">
+                          {jiraKey ? (
+                            <a
+                              href={`${JIRA_BASE_URL}/${jiraKey}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mr-1.5 px-1 bg-sky-500/20 text-sky-300 rounded font-mono text-[10px] hover:underline inline-flex items-center gap-0.5"
+                            >
+                              <span>{jiraKey}</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          ) : (
+                            task.source === 'JIRA' && <span className="mr-1.5 px-1 bg-sky-500/20 text-sky-300 rounded font-mono text-[10px]">Jira</span>
+                          )}
+                          {task.title}
+                        </td>
+                        <td className="py-3 px-4 text-slate-400">{task.dept_id}</td>
+                        <td className="py-3 px-4 text-slate-400 truncate max-w-[140px]">{task.assigned_to}</td>
+                        <td className="py-3 px-4 text-slate-500">{formatTaskDate(task.created_at)}</td>
+                        <td className="py-3 px-4 text-right space-x-2">
+                          {task.status === 'PROGRESS' && (
+                            <button
+                              onClick={() => handleStatusChange(task.task_id, 'COMPLETE')}
+                              className="text-emerald-400 hover:text-emerald-300 font-bold cursor-pointer"
+                            >
+                              Finish ✓
+                            </button>
+                          )}
+                          {task.status === 'PENDING' && (
+                            <button
+                              onClick={() => handleStatusChange(task.task_id, 'PROGRESS')}
+                              className="text-blue-400 hover:text-blue-300 font-bold cursor-pointer"
+                            >
+                              Resume &rarr;
+                            </button>
+                          )}
+                          {task.status === 'URGENT' && (
+                            <button
+                              onClick={() => handleAcknowledgeUrgent(task.task_id)}
+                              className="text-rose-400 hover:text-rose-300 font-bold cursor-pointer"
+                            >
+                              Start &rarr;
+                            </button>
+                          )}
                           <button
-                            onClick={() => handleStatusChange(task.task_id, 'COMPLETE')}
-                            className="text-emerald-400 hover:text-emerald-300 font-bold cursor-pointer"
+                            onClick={() => { setActiveTaskComments(task); fetchComments(task.task_id); }}
+                            className="text-sky-400 hover:text-sky-300 cursor-pointer"
                           >
-                            Finish ✓
+                            Chat
                           </button>
-                        )}
-                        {task.status === 'PENDING' && (
-                          <button
-                            onClick={() => handleStatusChange(task.task_id, 'PROGRESS')}
-                            className="text-blue-400 hover:text-blue-300 font-bold cursor-pointer"
-                          >
-                            Resume &rarr;
-                          </button>
-                        )}
-                        {task.status === 'URGENT' && (
-                          <button
-                            onClick={() => handleAcknowledgeUrgent(task.task_id)}
-                            className="text-rose-400 hover:text-rose-300 font-bold cursor-pointer"
-                          >
-                            Start &rarr;
-                          </button>
-                        )}
-                        <button
-                          onClick={() => { setActiveTaskComments(task); fetchComments(task.task_id); }}
-                          className="text-sky-400 hover:text-sky-300 cursor-pointer"
-                        >
-                          Chat
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -968,7 +1128,191 @@ export default function App() {
 
       </main>
 
-      {/* MODAL 1: TEAM DIRECTORY & PROVISIONING */}
+      {/* MODAL 1: ENTERPRISE EMPLOYEE KPI & PERFORMANCE VALUATION MATRIX */}
+      {showKpiModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-4xl w-full p-6 space-y-5 font-mono text-xs shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2 text-amber-400">
+                <Award className="w-5 h-5 text-amber-400" />
+                <h3 className="font-bold text-white text-sm">Enterprise Employee KPI &amp; Performance Valuation Matrix</h3>
+              </div>
+              <button onClick={() => setShowKpiModal(false)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
+            </div>
+
+            <p className="text-slate-400 text-[11px] leading-relaxed">
+              Objective workforce productivity valuation based on SLA turnaround velocity (TAT), on-time completion ratios, and capacity throughput.
+            </p>
+
+            <div className="max-h-80 overflow-y-auto custom-scrollbar border border-slate-800 rounded-xl">
+              <table className="w-full text-left">
+                <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold sticky top-0">
+                  <tr>
+                    <th className="py-2.5 px-3">Team Member</th>
+                    <th className="py-2.5 px-3">Department</th>
+                    <th className="py-2.5 px-3">Throughput</th>
+                    <th className="py-2.5 px-3">Delivery Rate</th>
+                    <th className="py-2.5 px-3">TAT Velocity</th>
+                    <th className="py-2.5 px-3">Valuation Score</th>
+                    <th className="py-2.5 px-3">Recognition Tier</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/80">
+                  {kpiMatrix.map(kpi => (
+                    <tr key={kpi.employee_id} className="hover:bg-slate-800/30">
+                      <td className="py-2.5 px-3">
+                        <div className="font-sans text-white font-medium">{kpi.full_name}</div>
+                        <span className="text-emerald-400 select-all font-mono text-[10px]">{kpi.employee_id}</span>
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-400">{kpi.dept_id}</td>
+                      <td className="py-2.5 px-3 text-slate-300">{kpi.completed_count} / {kpi.total_assigned}</td>
+                      <td className="py-2.5 px-3 text-emerald-400 font-bold">{kpi.completion_rate}</td>
+                      <td className="py-2.5 px-3 text-sky-400">{kpi.avg_tat_hours}</td>
+                      <td className="py-2.5 px-3 font-bold text-amber-300 flex items-center gap-1">
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                        <span>{kpi.kpi_score} / 5.0</span>
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          kpi.rating_tier.includes("PLATINUM") ? "bg-amber-500/20 text-amber-300 border border-amber-500/40" :
+                          kpi.rating_tier.includes("GOLD") ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40" :
+                          "bg-slate-800 text-slate-400"
+                        }`}>
+                          {kpi.rating_tier}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {kpiMatrix.length === 0 && (
+                    <tr><td colSpan={7} className="py-8 text-center text-slate-500 italic">No employee KPI records calculated yet.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: ARCHIVED TASKS VIEWER */}
+      {showArchiveModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-3xl w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2 text-slate-300">
+                <Archive className="w-5 h-5 text-slate-400" />
+                <h3 className="font-bold text-white text-sm">Archived Task History ({archivedTasks.length})</h3>
+              </div>
+              <button onClick={() => setShowArchiveModal(false)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
+            </div>
+
+            <div className="max-h-72 overflow-y-auto custom-scrollbar border border-slate-800 rounded-xl">
+              <table className="w-full text-left">
+                <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold sticky top-0">
+                  <tr>
+                    <th className="py-2 px-3">Ticket ID</th>
+                    <th className="py-2 px-3">Title</th>
+                    <th className="py-2 px-3">Completed By</th>
+                    <th className="py-2 px-3">Archived At</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/80">
+                  {archivedTasks.map(t => (
+                    <tr key={t.task_id} className="hover:bg-slate-800/30">
+                      <td className="py-2 px-3 text-slate-500 font-bold select-all">#{t.task_id.substring(0, 8).toUpperCase()}</td>
+                      <td className="py-2 px-3 text-slate-300 font-sans">{t.title}</td>
+                      <td className="py-2 px-3 text-slate-400">{t.assigned_to}</td>
+                      <td className="py-2 px-3 text-slate-500">{formatTaskDate(t.updated_at)}</td>
+                    </tr>
+                  ))}
+                  {archivedTasks.length === 0 && (
+                    <tr><td colSpan={4} className="py-8 text-center text-slate-500 italic">No archived tasks found.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: ASSIGN TASK (WITH DYNAMIC ASSIGNEE DROPDOWN) */}
+      {showAssignModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <form onSubmit={handleAssignSubmit} className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <h3 className="text-sm font-bold text-white">Assign Task</h3>
+              <button type="button" onClick={() => setShowAssignModal(false)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
+            </div>
+            <div>
+              <label className="block text-slate-400 mb-1">Task Title:</label>
+              <input 
+                type="text" 
+                value={newTaskTitle} 
+                onChange={(e) => setNewTaskTitle(e.target.value)} 
+                placeholder="e.g. Audit Q4 Compliance Report"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-sans text-xs"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-slate-400 mb-1">Select Assignee (Active Team Members):</label>
+              <select
+                value={newTaskAssignee}
+                onChange={(e) => setNewTaskAssignee(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono text-xs"
+              >
+                {teamEmployees.map(emp => (
+                  <option key={emp.employee_id} value={emp.employee_id}>
+                    {emp.full_name} ({emp.employee_id}) - {emp.dept_id}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-slate-400 mb-1">Department:</label>
+                <select 
+                  value={newTaskDept} 
+                  onChange={(e) => setNewTaskDept(e.target.value)} 
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white"
+                >
+                  {departments.map(d => (
+                    <option key={d.dept_id} value={d.dept_id}>{d.dept_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-slate-400 mb-1">Priority:</label>
+                <select 
+                  value={newTaskPriority} 
+                  onChange={(e) => setNewTaskPriority(e.target.value as any)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white"
+                >
+                  <option value="LOW">LOW</option>
+                  <option value="MEDIUM">MEDIUM</option>
+                  <option value="HIGH">HIGH</option>
+                  <option value="CRITICAL">CRITICAL</option>
+                </select>
+              </div>
+            </div>
+            <label className="flex items-center space-x-2 text-slate-300 cursor-pointer pt-1">
+              <input 
+                type="checkbox" 
+                checked={newTaskUrgent} 
+                onChange={(e) => setNewTaskUrgent(e.target.checked)} 
+              />
+              <span>Route to <strong>Urgent Assigning</strong> (Ping Alert)</span>
+            </label>
+            <button 
+              type="submit" 
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-md cursor-pointer"
+            >
+              Inject Task into Pipeline
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* MODAL 4: TEAM DIRECTORY */}
       {showTeamModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-5 font-mono text-xs shadow-2xl">
@@ -1036,7 +1380,7 @@ export default function App() {
 
             <div className="space-y-2">
               <span className="font-bold text-slate-300 block">Registered Employees:</span>
-              <div className="max-h-52 overflow-y-auto custom-scrollbar border border-slate-800 rounded-xl">
+              <div className="max-h-48 overflow-y-auto custom-scrollbar border border-slate-800 rounded-xl">
                 <table className="w-full text-left">
                   <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold sticky top-0">
                     <tr>
@@ -1044,8 +1388,6 @@ export default function App() {
                       <th className="py-2.5 px-3">Secure ID</th>
                       <th className="py-2.5 px-3">Dept</th>
                       <th className="py-2.5 px-3">Role</th>
-                      <th className="py-2.5 px-3">Recognition Index</th>
-                      <th className="py-2.5 px-3 text-right">Throughput</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/80">
@@ -1055,23 +1397,8 @@ export default function App() {
                         <td className="py-2 px-3 text-emerald-400 select-all font-mono">{emp.employee_id}</td>
                         <td className="py-2 px-3 text-slate-400">{emp.dept_id}</td>
                         <td className="py-2 px-3 text-sky-400 font-bold">{emp.role}</td>
-                        <td className="py-2 px-3">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            getEmployeePerformance(emp.employee_id).badge === "TOP PERFORMER" ? "bg-amber-500/10 text-amber-300 border border-amber-500/30" :
-                            getEmployeePerformance(emp.employee_id).badge === "ON TRACK" ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30" :
-                            "bg-slate-800 text-slate-300"
-                          }`}>
-                            {getEmployeePerformance(emp.employee_id).score} &bull; {getEmployeePerformance(emp.employee_id).badge}
-                          </span>
-                        </td>
-                        <td className="py-2 px-3 text-right text-slate-300 font-mono">
-                          {getEmployeePerformance(emp.employee_id).completed} / {getEmployeePerformance(emp.employee_id).total}
-                        </td>
                       </tr>
                     ))}
-                    {teamEmployees.length === 0 && (
-                      <tr><td colSpan={4} className="py-6 text-center text-slate-500 italic">No employees found.</td></tr>
-                    )}
                   </tbody>
                 </table>
               </div>
@@ -1080,7 +1407,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 2: THREADED COMMENTS & SUPERVISOR FEEDBACK */}
+      {/* MODAL 5: THREADED COMMENTS */}
       {activeTaskComments && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -1139,7 +1466,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 3: PING NOTIFICATION DRAWER */}
+      {/* MODAL 6: PING NOTIFICATIONS */}
       {showPingsModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -1178,7 +1505,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 4: WORKSPACE IDENTITY & TENANT LOGIN */}
+      {/* MODAL 7: WORKSPACE SESSION SWITCHER */}
       {showLoginModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -1215,12 +1542,6 @@ export default function App() {
                 >
                   ETM Personal
                 </button>
-                <button
-                  onClick={() => { setEmployeeId("ALPHA-OPS-ADM-01"); setShowLoginModal(false); }}
-                  className="px-2.5 py-1 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded text-amber-400 text-[10px] cursor-pointer"
-                >
-                  Alpha Admin
-                </button>
               </div>
             </div>
 
@@ -1238,7 +1559,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 5: ADD CUSTOM DEPARTMENT */}
+      {/* MODAL 8: ADD DEPARTMENT */}
       {showDeptModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <form onSubmit={handleAddDepartment} className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -1279,80 +1600,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 6: SINGLE TASK ASSIGNMENT */}
-      {showAssignModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <form onSubmit={handleAssignSubmit} className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-              <h3 className="text-sm font-bold text-white">Assign Task</h3>
-              <button type="button" onClick={() => setShowAssignModal(false)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
-            </div>
-            <div>
-              <label className="block text-slate-400 mb-1">Task Title:</label>
-              <input 
-                type="text" 
-                value={newTaskTitle} 
-                onChange={(e) => setNewTaskTitle(e.target.value)} 
-                placeholder="e.g. Audit Q4 Compliance Report"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-sans text-xs"
-              />
-            </div>
-            <div>
-              <label className="block text-slate-400 mb-1">Assignee Employee ID:</label>
-              <input 
-                type="text" 
-                value={newTaskAssignee} 
-                onChange={(e) => setNewTaskAssignee(e.target.value)} 
-                placeholder="Leave blank to assign to self"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-blue-500 font-mono text-xs"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-slate-400 mb-1">Department:</label>
-                <select 
-                  value={newTaskDept} 
-                  onChange={(e) => setNewTaskDept(e.target.value)} 
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white"
-                >
-                  {departments.map(d => (
-                    <option key={d.dept_id} value={d.dept_id}>{d.dept_name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-slate-400 mb-1">Priority:</label>
-                <select 
-                  value={newTaskPriority} 
-                  onChange={(e) => setNewTaskPriority(e.target.value as any)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white"
-                >
-                  <option value="LOW">LOW</option>
-                  <option value="MEDIUM">MEDIUM</option>
-                  <option value="HIGH">HIGH</option>
-                  <option value="CRITICAL">CRITICAL</option>
-                </select>
-              </div>
-            </div>
-            <label className="flex items-center space-x-2 text-slate-300 cursor-pointer pt-1">
-              <input 
-                type="checkbox" 
-                checked={newTaskUrgent} 
-                onChange={(e) => setNewTaskUrgent(e.target.checked)} 
-              />
-              <span>Route immediately to <strong>Urgent Assigning</strong> (Ping Alert)</span>
-            </label>
-            <button 
-              type="submit" 
-              className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-md cursor-pointer"
-            >
-              Inject Task into Pipeline
-            </button>
-          </form>
-        </div>
-      )}
-
-      {/* MODAL 7: BULK CSV INGESTION */}
+      {/* MODAL 9: BULK CSV INGESTION */}
       {showCsvModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -1380,7 +1628,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 8: REPORT BLOCKER */}
+      {/* MODAL 10: REPORT BLOCKER */}
       {showBlockerModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -1409,7 +1657,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL 9: LICENSE ACTIVATION */}
+      {/* MODAL 11: LICENSE ACTIVATION */}
       {showLicenseModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <form onSubmit={() => {}} className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-4 font-mono text-xs shadow-2xl">
@@ -1453,9 +1701,19 @@ export default function App() {
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 px-6 py-4 text-center font-mono text-[11px] text-slate-500">
-        &copy; {new Date().getFullYear()} SEOSiri Enterprise Labs • Tasks Sentinel Global Infrastructure
+      {/* Universal Footer */}
+      <footer className="border-t border-slate-900 bg-slate-950 px-6 py-4 text-center font-mono text-[11px] text-slate-500 flex flex-col sm:flex-row items-center justify-between max-w-7xl mx-auto w-full">
+        <span>&copy; {new Date().getFullYear()} SEOSiri Enterprise Labs &bull; Tasks Sentinel Global Infrastructure</span>
+        <button
+          onClick={() => {
+            setShowArchiveModal(true);
+            fetchArchivedTasks();
+          }}
+          className="text-slate-400 hover:text-white underline mt-2 sm:mt-0 flex items-center gap-1 cursor-pointer"
+        >
+          <Archive className="w-3.5 h-3.5" />
+          <span>View Archived Task History</span>
+        </button>
       </footer>
 
     </div>
