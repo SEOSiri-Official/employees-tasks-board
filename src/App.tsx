@@ -82,6 +82,7 @@ export default function App() {
   
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDept, setSelectedDept] = useState('ALL');
+  const [selectedSourceFilter, setSelectedSourceFilter] = useState('ALL');
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
   
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -507,10 +508,14 @@ export default function App() {
     return match ? match[1].toUpperCase() : null;
   };
 
-  const urgentTasks = tasks.filter(t => t.status === 'URGENT');
-  const progressTasks = tasks.filter(t => t.status === 'PROGRESS');
-  const pendingTasks = tasks.filter(t => t.status === 'PENDING');
-  const completeTasks = tasks.filter(t => t.status === 'COMPLETE');
+  const sourceFilteredTasks = selectedSourceFilter === 'ALL'
+    ? tasks 
+    : tasks.filter(t => (t.source || '').toUpperCase() === selectedSourceFilter);
+
+  const urgentTasks = sourceFilteredTasks.filter(t => t.status === 'URGENT');
+  const progressTasks = sourceFilteredTasks.filter(t => t.status === 'PROGRESS');
+  const pendingTasks = sourceFilteredTasks.filter(t => t.status === 'PENDING');
+  const completeTasks = sourceFilteredTasks.filter(t => t.status === 'COMPLETE');
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans selection:bg-blue-600 selection:text-white">
@@ -691,6 +696,32 @@ export default function App() {
           </div>
         )}
 
+        {/* Enterprise Ingestion Source Filter Bar */}
+        <div className="flex flex-wrap items-center gap-2 font-mono text-[11px] pt-1 pb-1">
+          <span className="text-slate-500 font-bold uppercase text-[10px]">Filter by Source:</span>
+          {[
+            { id: 'ALL', label: 'All Ingested Sources' },
+            { id: 'JIRA', label: 'Jira Cloud' },
+            { id: 'SALESFORCE', label: 'Salesforce' },
+            { id: 'HUBSPOT', label: 'HubSpot' },
+            { id: 'ASANA', label: 'Asana' },
+            { id: 'SERVICENOW', label: 'ServiceNow' },
+            { id: 'BOARD', label: 'Manual Board' }
+          ].map(src => (
+            <button
+              key={src.id}
+              onClick={() => setSelectedSourceFilter(src.id)}
+              className={`px-2.5 py-1 rounded-lg border transition-all cursor-pointer font-bold ${
+                selectedSourceFilter === src.id
+                  ? 'bg-blue-600 border-blue-500 text-white shadow-sm'
+                  : 'bg-slate-900/90 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+              }`}
+            >
+              {src.label}
+            </button>
+          ))}
+        </div>
+
         {/* Action Toolbar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-1">
           <div>
@@ -790,14 +821,14 @@ export default function App() {
                   <span>KPIs</span>
                 </button>
 
-                {/* Jira Sync Status Button */}
+                {/* Enterprise Ingestion Matrix Button */}
                 <button
                   onClick={() => setShowJiraModal(true)}
-                  className="px-3 py-2 bg-slate-900 hover:bg-slate-850 text-sky-400 border border-slate-800 rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
-                  title="View Jira Cloud Integration & Webhook Sync"
+                  className="px-3 py-2 bg-slate-900 hover:bg-slate-850 text-sky-400 border border-slate-800 rounded-xl transition-all flex items-center gap-1.5 shadow-sm cursor-pointer font-bold"
+                  title="Configure Ingestion Matrix (Jira, Salesforce, HubSpot, Asana, ServiceNow)"
                 >
                   <ExternalLink className="w-4 h-4 text-sky-400" />
-                  <span>Jira Sync</span>
+                  <span>Integrations Matrix</span>
                 </button>
               </div>
             )}
@@ -1732,27 +1763,36 @@ export default function App() {
       )}
 
       
-      {/* MODAL: JIRA INTEGRATION & TWO-WAY SYNC */}
+            {/* MODAL: SEOSIRI ENTERPRISE INGESTION MATRIX (5 PLATFORMS) */}
       {showJiraModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-5 font-mono text-xs shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-4xl w-full p-6 sm:p-8 space-y-6 font-mono text-xs shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center space-x-2 text-sky-400">
+              <div className="flex items-center space-x-2.5 text-sky-400">
                 <ExternalLink className="w-5 h-5 text-sky-400" />
-                <h3 className="font-bold text-white text-sm">Atlassian Jira Cloud Bi-Directional Bridge</h3>
+                <div>
+                  <h3 className="font-bold text-white text-sm">Enterprise Multi-Platform Ingestion Matrix</h3>
+                  <span className="text-[10px] text-slate-400 font-normal">Active Inbound Webhooks &amp; Auto-Department Routing</span>
+                </div>
               </div>
               <button onClick={() => setShowJiraModal(false)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
-              <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2">
-                <span className="text-[10px] text-slate-500 uppercase font-bold block">Target Jira Cloud Domain</span>
-                <div className="flex gap-1.5">
+            {/* Platform Profiles Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-left">
+              
+              {/* 1. JIRA */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-sky-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-sky-400 uppercase text-[11px]">1. Atlassian Jira Cloud</span>
+                  <span className="px-2 py-0.5 rounded text-[9px] bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">LIVE</span>
+                </div>
+                <div className="flex gap-1.5 pt-1">
                   <input
                     type="text"
                     value={tenantJiraDomain}
                     onChange={(e) => setTenantJiraDomain(e.target.value.trim())}
-                    placeholder="e.g. company.atlassian.net"
+                    placeholder="one-atlas-jkdr.atlassian.net"
                     className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white font-mono text-xs flex-1 focus:outline-none focus:border-blue-500"
                   />
                   <button
@@ -1763,181 +1803,116 @@ export default function App() {
                     }}
                     className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-[10px] cursor-pointer"
                   >
-                    {jiraDomainSavedMsg ? "Saved ✓" : "Save"}
+                    {jiraDomainSavedMsg ? "Saved ✓" : "Save Domain"}
                   </button>
                 </div>
-                <span className="text-[10px] text-slate-400 block font-mono">
-                  Points cards to: <code>https://{tenantJiraDomain}/browse/...</code>
+                <span className="text-[10px] text-slate-500 block">Webhook Endpoint:</span>
+                <div className="p-2 bg-slate-900 rounded-lg text-emerald-400 text-[10px] select-all break-all border border-slate-800">
+                  https://tasks.seosiri.com/v1/webhooks/jira?tenant=ETM&amp;dept=ENG
+                </div>
+              </div>
+
+              {/* 2. SALESFORCE */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-blue-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-blue-400 uppercase text-[11px]">2. Salesforce Service Cloud</span>
+                  <span className="px-2 py-0.5 rounded text-[9px] bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">LIVE</span>
+                </div>
+                <span className="text-[10px] text-slate-400 block font-sans">
+                  Auto-segments customer cases to <strong>OPS (Operations)</strong>. Critical P1 cases route to Urgent.
                 </span>
+                <span className="text-[10px] text-slate-500 block">Webhook Endpoint:</span>
+                <div className="p-2 bg-slate-900 rounded-lg text-emerald-400 text-[10px] select-all break-all border border-slate-800">
+                  https://tasks.seosiri.com/v1/webhooks/salesforce?tenant=ETM&amp;dept=OPS
+                </div>
               </div>
-              <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1">
-                <span className="text-[10px] text-slate-500 uppercase font-bold block">Bi-Directional Status</span>
-                <strong className="text-emerald-400 text-xs block">LISTENING &amp; RESOLVING</strong>
-                <span className="text-[10px] text-slate-400">Inbound Webhook + Outbound Transition</span>
+
+              {/* 3. HUBSPOT */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-amber-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-amber-400 uppercase text-[11px]">3. HubSpot RevOps &amp; CRM</span>
+                  <span className="px-2 py-0.5 rounded text-[9px] bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">LIVE</span>
+                </div>
+                <span className="text-[10px] text-slate-400 block font-sans">
+                  Auto-segments onboarding and expansion tickets to <strong>GROWTH (Sales &amp; RevOps)</strong>.
+                </span>
+                <span className="text-[10px] text-slate-500 block">Webhook Endpoint:</span>
+                <div className="p-2 bg-slate-900 rounded-lg text-emerald-400 text-[10px] select-all break-all border border-slate-800">
+                  https://tasks.seosiri.com/v1/webhooks/hubspot?tenant=ETM&amp;dept=GROWTH
+                </div>
               </div>
+
+              {/* 4. ASANA */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-rose-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-rose-400 uppercase text-[11px]">4. Asana Corporate Operations</span>
+                  <span className="px-2 py-0.5 rounded text-[9px] bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">LIVE</span>
+                </div>
+                <span className="text-[10px] text-slate-400 block font-sans">
+                  Auto-segments cross-functional initiatives to <strong>OPERATIONS (Legal / Compliance / HR)</strong>.
+                </span>
+                <span className="text-[10px] text-slate-500 block">Webhook Endpoint:</span>
+                <div className="p-2 bg-slate-900 rounded-lg text-emerald-400 text-[10px] select-all break-all border border-slate-800">
+                  https://tasks.seosiri.com/v1/webhooks/asana?tenant=ETM&amp;dept=OPERATIONS
+                </div>
+              </div>
+
+              {/* 5. SERVICENOW */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-emerald-500/30 space-y-2 md:col-span-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-emerald-400 uppercase text-[11px]">5. ServiceNow Global ITSM &amp; Incidents</span>
+                  <span className="px-2 py-0.5 rounded text-[9px] bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20">LIVE</span>
+                </div>
+                <span className="text-[10px] text-slate-400 block font-sans">
+                  Auto-segments IT incidents and security tickets to <strong>INFRA (Infrastructure &amp; SOC)</strong>.
+                </span>
+                <span className="text-[10px] text-slate-500 block">Webhook Endpoint:</span>
+                <div className="p-2 bg-slate-900 rounded-lg text-emerald-400 text-[10px] select-all break-all border border-slate-800">
+                  https://tasks.seosiri.com/v1/webhooks/servicenow?tenant=ETM&amp;dept=INFRA
+                </div>
+              </div>
+
             </div>
 
-            <div className="space-y-1.5 text-left">
-              <span className="text-slate-300 font-bold block">Inbound Jira Webhook Endpoint:</span>
-              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-emerald-400 select-all font-mono text-[11px] break-all">
-                https://tasks.seosiri.com/v1/webhooks/jira?tenant=ETM
-              </div>
-              <p className="text-[10px] text-slate-500">
-                Configure this URL in Jira Settings &rarr; System &rarr; Webhooks (Events: Issue Created, Updated).
-              </p>
-            </div>
-
-            <div className="space-y-2 text-left">
-              <span className="text-slate-300 font-bold block">Active Synced Jira Tasks in Pipeline:</span>
-              <div className="max-h-40 overflow-y-auto custom-scrollbar border border-slate-800 rounded-xl">
+            {/* Live Ingested Feed Table */}
+            <div className="space-y-2 text-left pt-2 border-t border-slate-800">
+              <span className="text-slate-300 font-bold block">Recent Multi-Platform Ingested Deliverables:</span>
+              <div className="max-h-48 overflow-y-auto custom-scrollbar border border-slate-800 rounded-xl">
                 <table className="w-full text-left">
                   <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold sticky top-0">
                     <tr>
-                      <th className="py-2 px-3">Issue Key</th>
+                      <th className="py-2 px-3">Platform</th>
+                      <th className="py-2 px-3">Ticket ID</th>
                       <th className="py-2 px-3">Summary</th>
+                      <th className="py-2 px-3">Dept</th>
                       <th className="py-2 px-3">Status</th>
-                      <th className="py-2 px-3 text-right">Atlassian Link</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/80">
-                    {tasks.filter(t => t.source === "JIRA" || t.title.includes("[Jira")).map(t => {
-                      const match = t.title.match(/\[Jira\s+([A-Z0-9]+-\d+)\]/i);
-                      const key = match ? match[1].toUpperCase() : t.task_id;
-                      return (
-                        <tr key={t.task_id} className="hover:bg-slate-800/30">
-                          <td className="py-2 px-3 font-bold text-sky-400">{key}</td>
-                          <td className="py-2 px-3 text-slate-300 font-sans truncate max-w-[200px]">{t.title.replace(/\[Jira[^\]]+\]\s*/, "")}</td>
-                          <td className="py-2 px-3 font-bold text-[10px] text-emerald-400">{t.status}</td>
-                          <td className="py-2 px-3 text-right">
-                            <a
-                              href={`https://${tenantJiraDomain}/browse/${key}`} target="_blank" rel="noreferrer" className="text-sky-400 hover:underline text-[10px] inline-flex items-center gap-0.5"
-                            >
-                              <span>Open</span>
-                              <ExternalLink className="w-2.5 h-2.5" />
-                            </a>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {tasks.filter(t => t.source && t.source !== 'BOARD').map(t => (
+                      <tr key={t.task_id} className="hover:bg-slate-800/30">
+                        <td className="py-2 px-3">
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                            t.source === 'SALESFORCE' ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' :
+                            t.source === 'HUBSPOT' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
+                            t.source === 'ASANA' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
+                            t.source === 'SERVICENOW' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                            'bg-sky-500/20 text-sky-300 border border-sky-500/30'
+                          }`}>
+                            {t.source}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 font-bold text-slate-300 select-all">#{t.task_id.substring(0, 10)}</td>
+                        <td className="py-2 px-3 text-slate-200 font-sans truncate max-w-[220px]">{t.title}</td>
+                        <td className="py-2 px-3 text-slate-400">{t.dept_id}</td>
+                        <td className="py-2 px-3 text-emerald-400 font-bold text-[10px]">{t.status}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
             </div>
-          </div>
-        </div>
-      )}
 
-      
-      {/* MODAL: BRANDED OS DOWNLOAD HUB */}
-      {showDownloadModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-5 font-mono text-xs shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center space-x-2 text-emerald-400">
-                <Shield className="w-5 h-5 text-emerald-400" />
-                <h3 className="font-bold text-white text-sm">Download Native Task Sentinel Daemon</h3>
-              </div>
-              <button onClick={() => setShowDownloadModal(false)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
-            </div>
-
-            <p className="text-slate-400 text-[11px] leading-relaxed">
-              Ultra-lightweight native background sentinel (&lt;15MB RAM, zero bundled browser overhead). Stays docked in your system tray and delivers real-time task notifications.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
-              
-              {/* Windows Option */}
-              <div className={`p-4 rounded-2xl flex flex-col justify-between space-y-3 transition-all ${
-                detectedOS === "windows" 
-                  ? "bg-slate-950 border-2 border-emerald-500/60 shadow-lg shadow-emerald-500/10" 
-                  : "bg-slate-950/70 border border-slate-800"
-              }`}>
-                {detectedOS === "windows" && (
-                  <span className="text-[9px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 py-0.5 px-2 rounded-full border border-emerald-500/30 self-center">
-                    Recommended for your Device
-                  </span>
-                )}
-                <div>
-                  <strong className="text-white text-sm block">Windows (64-bit)</strong>
-                  <span className="text-[10px] text-slate-500 block">Windows 10 / 11 Enterprise</span>
-                </div>
-                <div className="space-y-2">
-                  <a
-                    href="https://tasks.seosiri.com/v1/download/windows"
-                    className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg block transition-all"
-                  >
-                    Download MSI
-                  </a>
-                  <a
-                    href="https://tasks.seosiri.com/v1/download/windows-exe"
-                    className="w-full py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 rounded-lg block text-[10px]"
-                  >
-                    Setup EXE (1-Click)
-                  </a>
-                </div>
-              </div>
-
-              {/* macOS Option */}
-              <div className={`p-4 rounded-2xl flex flex-col justify-between space-y-3 transition-all ${
-                detectedOS === "mac" 
-                  ? "bg-slate-950 border-2 border-emerald-500/60 shadow-lg shadow-emerald-500/10" 
-                  : "bg-slate-950/70 border border-slate-800"
-              }`}>
-                {detectedOS === "mac" && (
-                  <span className="text-[9px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 py-0.5 px-2 rounded-full border border-emerald-500/30 self-center">
-                    Recommended for your Mac
-                  </span>
-                )}
-                <div>
-                  <strong className="text-white text-sm block">macOS</strong>
-                  <span className="text-[10px] text-slate-500 block">Apple Silicon &amp; Intel</span>
-                </div>
-                <div className="space-y-2">
-                  <a
-                    href="https://tasks.seosiri.com/v1/download/mac"
-                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg block transition-all"
-                  >
-                    Download DMG
-                  </a>
-                  <span className="text-[10px] text-slate-500 block pt-1">Menu Bar Sentinel</span>
-                </div>
-              </div>
-
-              {/* Linux Option */}
-              <div className={`p-4 rounded-2xl flex flex-col justify-between space-y-3 transition-all ${
-                detectedOS === "linux" 
-                  ? "bg-slate-950 border-2 border-emerald-500/60 shadow-lg shadow-emerald-500/10" 
-                  : "bg-slate-950/70 border border-slate-800"
-              }`}>
-                {detectedOS === "linux" && (
-                  <span className="text-[9px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 py-0.5 px-2 rounded-full border border-emerald-500/30 self-center">
-                    Recommended for your Device
-                  </span>
-                )}
-                <div>
-                  <strong className="text-white text-sm block">Linux</strong>
-                  <span className="text-[10px] text-slate-500 block">Ubuntu / Debian / RHEL</span>
-                </div>
-                <div className="space-y-2">
-                  <a
-                    href="https://tasks.seosiri.com/v1/download/linux"
-                    className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg block transition-all"
-                  >
-                    Download DEB
-                  </a>
-                  <span className="text-[10px] text-slate-500 block pt-1">AppIndicator Tray</span>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Silent Fleet Install Snippet for IT Admins */}
-            <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1.5 text-left">
-              <span className="text-[10px] text-slate-400 font-bold uppercase block">Corporate Mass Deployment (Microsoft Intune / Group Policy):</span>
-              <div className="bg-slate-900 p-2 rounded-lg text-emerald-400 text-[10px] font-mono select-all break-all border border-slate-800">
-                msiexec /i SEOSiriTaskSentinel_2.0.0_x64_en-US.msi /quiet /qn
-              </div>
-            </div>
           </div>
         </div>
       )}
