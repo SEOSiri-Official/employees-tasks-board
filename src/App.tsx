@@ -100,6 +100,7 @@ export default function App() {
   const [showBlockerModal, setShowBlockerModal] = useState<string | null>(null);
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [showJiraModal, setShowJiraModal] = useState(false);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [showKpiModal, setShowKpiModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [activeTaskComments, setActiveTaskComments] = useState<Task | null>(null);
@@ -1797,6 +1798,94 @@ export default function App() {
                     })}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      
+      {/* MODAL: BRANDED OS DOWNLOAD HUB */}
+      {showDownloadModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-5 font-mono text-xs shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2 text-emerald-400">
+                <Shield className="w-5 h-5 text-emerald-400" />
+                <h3 className="font-bold text-white text-sm">Download Native Task Sentinel Daemon</h3>
+              </div>
+              <button onClick={() => setShowDownloadModal(false)} className="text-slate-500 hover:text-white text-base cursor-pointer">✕</button>
+            </div>
+
+            <p className="text-slate-400 text-[11px] leading-relaxed">
+              Ultra-lightweight native background sentinel (&lt;15MB RAM, zero bundled browser overhead). Stays docked in your system tray and delivers real-time task notifications.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+              
+              {/* Windows Option */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between space-y-3">
+                <div>
+                  <strong className="text-white text-sm block">Windows (64-bit)</strong>
+                  <span className="text-[10px] text-slate-500 block">Windows 10 / 11 Enterprise</span>
+                </div>
+                <div className="space-y-2">
+                  <a
+                    href="https://tasks.seosiri.com/v1/download/windows"
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg block transition-all"
+                  >
+                    Download MSI
+                  </a>
+                  <a
+                    href="https://tasks.seosiri.com/v1/download/windows-exe"
+                    className="w-full py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 rounded-lg block text-[10px]"
+                  >
+                    Setup EXE (1-Click)
+                  </a>
+                </div>
+              </div>
+
+              {/* macOS Option */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between space-y-3">
+                <div>
+                  <strong className="text-white text-sm block">macOS</strong>
+                  <span className="text-[10px] text-slate-500 block">Apple Silicon &amp; Intel</span>
+                </div>
+                <div className="space-y-2">
+                  <a
+                    href="https://tasks.seosiri.com/v1/download/mac"
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg block transition-all"
+                  >
+                    Download DMG
+                  </a>
+                  <span className="text-[10px] text-slate-500 block pt-1">Menu Bar Sentinel</span>
+                </div>
+              </div>
+
+              {/* Linux Option */}
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between space-y-3">
+                <div>
+                  <strong className="text-white text-sm block">Linux</strong>
+                  <span className="text-[10px] text-slate-500 block">Ubuntu / Debian / RHEL</span>
+                </div>
+                <div className="space-y-2">
+                  <a
+                    href="https://tasks.seosiri.com/v1/download/linux"
+                    className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-lg block transition-all"
+                  >
+                    Download DEB
+                  </a>
+                  <span className="text-[10px] text-slate-500 block pt-1">AppIndicator Tray</span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Silent Fleet Install Snippet for IT Admins */}
+            <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-1.5 text-left">
+              <span className="text-[10px] text-slate-400 font-bold uppercase block">Corporate Mass Deployment (Microsoft Intune / Group Policy):</span>
+              <div className="bg-slate-900 p-2 rounded-lg text-emerald-400 text-[10px] font-mono select-all break-all border border-slate-800">
+                msiexec /i SEOSiriTaskSentinel_2.0.0_x64_en-US.msi /quiet /qn
               </div>
             </div>
           </div>
