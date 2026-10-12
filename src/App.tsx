@@ -740,6 +740,16 @@ export default function App() {
 
             {isAdmin && (
               <div className="flex items-center space-x-2">
+                {/* Desktop App Download Hub Button */}
+                <button
+                  onClick={() => setShowDownloadModal(true)}
+                  className="px-3.5 py-2 bg-slate-900 hover:bg-slate-850 text-emerald-400 border border-slate-800 rounded-xl transition-all flex items-center gap-1.5 shadow-sm text-xs font-mono font-bold cursor-pointer"
+                  title="Download Native Task Sentinel Daemon (OS Auto-Detected)"
+                >
+                  <Shield className="w-4 h-4 text-emerald-400" />
+                  <span>Desktop App</span>
+                </button>
+
                 <button
                   onClick={() => setShowAssignModal(true)}
                   className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
