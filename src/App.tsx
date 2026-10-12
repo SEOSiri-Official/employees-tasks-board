@@ -101,6 +101,19 @@ export default function App() {
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [showJiraModal, setShowJiraModal] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
+  // Client Operating System Auto-Detection
+  const [detectedOS, setDetectedOS] = useState<"windows" | "mac" | "linux">("windows");
+  
+  useEffect(() => {
+    const ua = navigator.userAgent.toLowerCase();
+    if (ua.includes("mac") || ua.includes("darwin")) {
+      setDetectedOS("mac");
+    } else if (ua.includes("linux") || ua.includes("x11")) {
+      setDetectedOS("linux");
+    } else {
+      setDetectedOS("windows");
+    }
+  }, []);
   const [showKpiModal, setShowKpiModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [activeTaskComments, setActiveTaskComments] = useState<Task | null>(null);
@@ -1824,7 +1837,16 @@ export default function App() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
               
               {/* Windows Option */}
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between space-y-3">
+              <div className={`p-4 rounded-2xl flex flex-col justify-between space-y-3 transition-all ${
+                detectedOS === "windows" 
+                  ? "bg-slate-950 border-2 border-emerald-500/60 shadow-lg shadow-emerald-500/10" 
+                  : "bg-slate-950/70 border border-slate-800"
+              }`}>
+                {detectedOS === "windows" && (
+                  <span className="text-[9px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 py-0.5 px-2 rounded-full border border-emerald-500/30 self-center">
+                    Recommended for your Device
+                  </span>
+                )}
                 <div>
                   <strong className="text-white text-sm block">Windows (64-bit)</strong>
                   <span className="text-[10px] text-slate-500 block">Windows 10 / 11 Enterprise</span>
@@ -1846,7 +1868,16 @@ export default function App() {
               </div>
 
               {/* macOS Option */}
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between space-y-3">
+              <div className={`p-4 rounded-2xl flex flex-col justify-between space-y-3 transition-all ${
+                detectedOS === "mac" 
+                  ? "bg-slate-950 border-2 border-emerald-500/60 shadow-lg shadow-emerald-500/10" 
+                  : "bg-slate-950/70 border border-slate-800"
+              }`}>
+                {detectedOS === "mac" && (
+                  <span className="text-[9px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 py-0.5 px-2 rounded-full border border-emerald-500/30 self-center">
+                    Recommended for your Mac
+                  </span>
+                )}
                 <div>
                   <strong className="text-white text-sm block">macOS</strong>
                   <span className="text-[10px] text-slate-500 block">Apple Silicon &amp; Intel</span>
@@ -1863,7 +1894,16 @@ export default function App() {
               </div>
 
               {/* Linux Option */}
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between space-y-3">
+              <div className={`p-4 rounded-2xl flex flex-col justify-between space-y-3 transition-all ${
+                detectedOS === "linux" 
+                  ? "bg-slate-950 border-2 border-emerald-500/60 shadow-lg shadow-emerald-500/10" 
+                  : "bg-slate-950/70 border border-slate-800"
+              }`}>
+                {detectedOS === "linux" && (
+                  <span className="text-[9px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 py-0.5 px-2 rounded-full border border-emerald-500/30 self-center">
+                    Recommended for your Device
+                  </span>
+                )}
                 <div>
                   <strong className="text-white text-sm block">Linux</strong>
                   <span className="text-[10px] text-slate-500 block">Ubuntu / Debian / RHEL</span>
