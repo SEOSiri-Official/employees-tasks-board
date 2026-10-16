@@ -267,7 +267,7 @@ export default function App() {
         // Silent background CRM sync (Zero human clicks)
         fetch(`${API_GATEWAY}/v1/sync/hubspot?tenant=ETM`, { method: "POST" }).catch(() => {});
       }
-    }, 15000);
+    }, 3000);
     return () => clearInterval(interval);
   }, [employeeId, selectedDept]);
 
