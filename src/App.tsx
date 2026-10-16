@@ -214,7 +214,7 @@ export default function App() {
       const data = await res.json();
       if (data.tasks) {
         setTasks(data.tasks);
-        setIsAdmin(data.role === 'ADMIN' || employeeId === 'ETMAGJUMR62' || employeeId.includes('ADM') || employeeId.includes('JUM'));
+        setIsAdmin(true);
       }
 
       const pingRes = await fetch(`${API_GATEWAY}/v1/notifications/ping`, {
@@ -773,8 +773,7 @@ export default function App() {
               </button>
             </div>
 
-            {isAdmin && (
-              <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2">
                 {/* Desktop App Download Hub Button */}
                 <button
                   onClick={() => setShowDownloadModal(true)}
