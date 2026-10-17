@@ -834,7 +834,6 @@ export default function App() {
                   <span>Integrations Matrix</span>
                 </button>
               </div>
-            )}
           </div>
         </div>
 
